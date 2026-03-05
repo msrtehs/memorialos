@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 
@@ -44,6 +44,8 @@ const Placeholder = ({ title }: { title: string }) => (
 
 const AppContent = () => {
   const { error } = useAuth();
+  const normalizedBase = (import.meta.env.BASE_URL || '/').replace(/\/+$/, '') || '/';
+  const Router = import.meta.env.PROD ? HashRouter : BrowserRouter;
 
   if (error) {
     return (
@@ -67,7 +69,7 @@ const AppContent = () => {
   }
 
   return (
-    <BrowserRouter basename={import.meta.env.BASE_URL}>
+    <Router basename={import.meta.env.PROD ? undefined : normalizedBase}>
       <Routes>
         {/* Public Routes - Login is now default */}
         <Route element={<PublicLayout />}>
@@ -117,7 +119,7 @@ const AppContent = () => {
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </BrowserRouter>
+    </Router>
   );
 };
 
