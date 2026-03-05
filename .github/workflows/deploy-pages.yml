@@ -17,18 +17,6 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      # Gemini must come from GitHub Secret
-      VITE_GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-
-      # Firebase web config can come from Variables or Secrets
-      VITE_FIREBASE_API_KEY: ${{ vars.VITE_FIREBASE_API_KEY || secrets.VITE_FIREBASE_API_KEY }}
-      VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN || secrets.VITE_FIREBASE_AUTH_DOMAIN }}
-      VITE_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID || secrets.VITE_FIREBASE_PROJECT_ID }}
-      VITE_FIREBASE_STORAGE_BUCKET: ${{ vars.VITE_FIREBASE_STORAGE_BUCKET || secrets.VITE_FIREBASE_STORAGE_BUCKET }}
-      VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ vars.VITE_FIREBASE_MESSAGING_SENDER_ID || secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
-      VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID || secrets.VITE_FIREBASE_APP_ID }}
-      VITE_FIREBASE_MEASUREMENT_ID: ${{ vars.VITE_FIREBASE_MEASUREMENT_ID || secrets.VITE_FIREBASE_MEASUREMENT_ID }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -41,6 +29,19 @@ jobs:
 
       - name: Install Dependencies
         run: npm ci
+
+      - name: Create .env For Build
+        run: |
+          cat > .env <<'EOF'
+          VITE_GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+          VITE_FIREBASE_API_KEY=AIzaSyDiKUnwst_k5JTdQG79PvQYkRdT5bCnnXQ
+          VITE_FIREBASE_AUTH_DOMAIN=memorialos.firebaseapp.com
+          VITE_FIREBASE_PROJECT_ID=memorialos
+          VITE_FIREBASE_STORAGE_BUCKET=memorialos.firebasestorage.app
+          VITE_FIREBASE_MESSAGING_SENDER_ID=320298917710
+          VITE_FIREBASE_APP_ID=1:320298917710:web:77e6995b581df66ec7081f
+          VITE_FIREBASE_MEASUREMENT_ID=G-4NMDQ9C2EF
+          EOF
 
       - name: Build
         run: npm run build
