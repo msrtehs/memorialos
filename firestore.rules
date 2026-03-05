@@ -1,0 +1,156 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper Functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function hasRole(role) {
+      return isSignedIn() && request.auth.token.role == role;
+    }
+
+    // Compatibility with current frontend demo login behavior.
+    function isDemoSuperAdmin() {
+      return isSignedIn()
+        && (
+          request.auth.token.email == 'admin@memorial.com'
+          || request.auth.token.email == 'gestor@memorial.com'
+        );
+    }
+
+    function isSuperAdmin() {
+      return hasRole('superadmin') || isDemoSuperAdmin();
+    }
+
+    function isManager(tenantId) {
+      return isSignedIn()
+        && (
+          request.auth.token.role == 'manager'
+          || request.auth.token.role == 'gestor'
+        )
+        && request.auth.token.tenantId == tenantId;
+    }
+
+    function isOperator(tenantId) {
+      return isSignedIn()
+        && (
+          request.auth.token.role == 'operator'
+          || request.auth.token.role == 'operador'
+        )
+        && request.auth.token.tenantId == tenantId;
+    }
+
+    function isStaff(tenantId) {
+      return isSuperAdmin() || isManager(tenantId) || isOperator(tenantId);
+    }
+
+    // Tenants
+    match /tenants/{tenantId} {
+      allow read: if true;
+      allow write: if isSuperAdmin();
+    }
+
+    // Cemeteries
+    match /cemeteries/{cemeteryId} {
+      allow read: if true;
+      allow create: if isStaff(request.resource.data.tenantId);
+      allow update, delete: if isStaff(resource.data.tenantId);
+    }
+
+    // Sectors
+    match /sectors/{sectorId} {
+      allow read: if true;
+      allow create: if isStaff(request.resource.data.tenantId);
+      allow update, delete: if isStaff(resource.data.tenantId);
+    }
+
+    // Plots
+    match /plots/{plotId} {
+      allow read: if true;
+      allow create: if isStaff(request.resource.data.tenantId);
+      allow update, delete: if isStaff(resource.data.tenantId);
+    }
+
+    // Official deceased records
+    match /deceaseds/{deceasedId} {
+      allow read: if true;
+      allow create: if isStaff(request.resource.data.tenantId);
+      allow update, delete: if isStaff(resource.data.tenantId);
+    }
+
+    // Death notifications used by user garden + admin allocation flow
+    match /death_notifications/{notificationId} {
+      allow create: if isSignedIn()
+                    && request.resource.data.createdBy == request.auth.uid;
+
+      allow read: if isSignedIn()
+                  && (
+                    resource.data.createdBy == request.auth.uid
+                    || isStaff(resource.data.tenantId)
+                  );
+
+      allow update: if isSignedIn()
+                    && (
+                      resource.data.createdBy == request.auth.uid
+                      || isStaff(resource.data.tenantId)
+                    );
+
+      allow delete: if isSignedIn()
+                    && (
+                      (
+                        resource.data.createdBy == request.auth.uid
+                        && resource.data.status == 'rejected'
+                      )
+                      || isStaff(resource.data.tenantId)
+                    );
+    }
+
+    // Memorials
+    match /memorials/{memorialId} {
+      allow read: if resource.data.privacyLevel == 'public'
+                  || resource.data.privacyLevel == 'link_only'
+                  || (
+                    isSignedIn()
+                    && resource.data.privacyLevel == 'private'
+                    && request.auth.uid in resource.data.managers
+                  );
+
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && request.auth.uid in resource.data.managers;
+      allow delete: if isSuperAdmin();
+
+      // Tributes
+      match /tributes/{tributeId} {
+        allow read: if true;
+        allow create: if isSignedIn();
+        allow update: if isSignedIn()
+                      && (
+                        request.auth.uid == resource.data.authorUid
+                        || request.auth.uid in get(/databases/$(database)/documents/memorials/$(memorialId)).data.managers
+                      );
+      }
+    }
+
+    // Audit logs (immutable)
+    match /audit_logs/{logId} {
+      allow read: if isSuperAdmin();
+      allow create: if isSignedIn();
+      allow update, delete: if false;
+    }
+
+    // Service requests
+    match /requests/{requestId} {
+      allow create: if isSignedIn();
+      allow read: if request.auth.uid == resource.data.requesterUid
+                  || isStaff(resource.data.tenantId);
+      allow update: if isStaff(resource.data.tenantId)
+                    || (
+                      request.auth.uid == resource.data.requesterUid
+                      && resource.data.status == 'open'
+                    );
+    }
+  }
+}

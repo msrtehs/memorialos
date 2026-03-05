@@ -1,0 +1,81 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Helper Functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function hasRole(role) {
+      return isSignedIn() && request.auth.token.role == role;
+    }
+
+    // Compatibility with current frontend demo login behavior.
+    function isDemoSuperAdmin() {
+      return isSignedIn()
+        && (
+          request.auth.token.email == 'admin@memorial.com'
+          || request.auth.token.email == 'gestor@memorial.com'
+        );
+    }
+
+    function isSuperAdmin() {
+      return hasRole('superadmin') || isDemoSuperAdmin();
+    }
+
+    function isManager() {
+      return isSignedIn()
+        && (
+          request.auth.token.role == 'manager'
+          || request.auth.token.role == 'gestor'
+        );
+    }
+
+    function isOperator() {
+      return isSignedIn()
+        && (
+          request.auth.token.role == 'operator'
+          || request.auth.token.role == 'operador'
+        );
+    }
+
+    function isStaff() {
+      return isSuperAdmin() || isManager() || isOperator();
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Paths currently used by the app for uploads.
+    match /documents/{userId}/{fileName=**} {
+      allow read: if isOwner(userId) || isStaff();
+      allow write: if isOwner(userId) || isStaff();
+    }
+
+    match /photos/{userId}/{fileName=**} {
+      allow read: if isOwner(userId) || isStaff();
+      allow write: if isOwner(userId) || isStaff();
+    }
+
+    // Legacy/alternative path for memorial photos.
+    match /memorials/{memorialId}/photos/{fileName=**} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    // Legacy/alternative tenant-organized documents.
+    match /tenants/{tenantId}/deceaseds/{deceasedId}/documents/{fileName=**} {
+      allow read: if isStaff();
+      allow write: if isStaff();
+    }
+
+    // Request evidence files.
+    match /tenants/{tenantId}/requests/{requestId}/{fileName=**} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+  }
+}
