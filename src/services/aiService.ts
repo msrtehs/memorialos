@@ -1,10 +1,18 @@
 import { GoogleGenAI } from "@google/genai";
 
-// Initialize the Gemini API client
-const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
+function getAIClient() {
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY?.trim();
+  if (!apiKey) return null;
+  return new GoogleGenAI({ apiKey });
+}
 
 export const generateObituary = async (data: any) => {
   try {
+    const ai = getAIClient();
+    if (!ai) {
+      return "Serviço de IA indisponível: chave Gemini não configurada.";
+    }
+
     const prompt = `
       Escreva um obituário respeitoso, acolhedor e emocionante para:
       Nome: ${data.name}
@@ -37,6 +45,11 @@ export const generateObituary = async (data: any) => {
 
 export const chatWithMemorialAI = async (history: { role: 'user' | 'model', parts: string }[], message: string) => {
   try {
+    const ai = getAIClient();
+    if (!ai) {
+      return "Serviço de IA indisponível no momento.";
+    }
+
     const chat = ai.chats.create({
       model: "gemini-2.5-flash",
       config: {
