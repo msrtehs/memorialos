@@ -67,7 +67,7 @@ const AppContent = () => {
   }
 
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
       <Routes>
         {/* Public Routes - Login is now default */}
         <Route element={<PublicLayout />}>

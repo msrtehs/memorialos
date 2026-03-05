@@ -33,6 +33,24 @@ VITE_FIREBASE_APP_ID=seu_app_id
 4.  Habilite **Storage**.
 5.  Copie o conteúdo de `firestore.rules` e `storage.rules` para o console do Firebase.
 
+## Deploy no GitHub Pages
+
+Este repositório possui workflow em `.github/workflows/deploy-pages.yml`.
+
+Antes do primeiro deploy, configure no GitHub:
+
+1.  **Secret** (`Settings > Secrets and variables > Actions > Secrets`)
+    *   `GEMINI_API_KEY`
+2.  **Variables** (`Settings > Secrets and variables > Actions > Variables`)
+    *   `VITE_FIREBASE_API_KEY`
+    *   `VITE_FIREBASE_AUTH_DOMAIN`
+    *   `VITE_FIREBASE_PROJECT_ID`
+    *   `VITE_FIREBASE_STORAGE_BUCKET`
+    *   `VITE_FIREBASE_MESSAGING_SENDER_ID`
+    *   `VITE_FIREBASE_APP_ID`
+    *   `VITE_FIREBASE_MEASUREMENT_ID`
+3.  Em `Settings > Pages`, selecione **Build and deployment: GitHub Actions**.
+
 ## Comandos
 
 *   `npm install`: Instala dependências.
