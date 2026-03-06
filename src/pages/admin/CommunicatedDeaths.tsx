@@ -143,7 +143,7 @@ export default function CommunicatedDeaths() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Comunicações de Óbito</h1>
           <p className="text-slate-500">Gerencie as solicitações de sepultamento recebidas.</p>
@@ -157,8 +157,8 @@ export default function CommunicatedDeaths() {
         </button>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <table className="w-full text-sm text-left text-slate-600">
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
+        <table className="w-full min-w-[760px] text-sm text-left text-slate-600">
           <thead className="bg-slate-50 text-slate-700 font-medium border-b border-slate-200">
             <tr>
               <th className="px-6 py-4">Falecido</th>
@@ -287,7 +287,7 @@ export default function CommunicatedDeaths() {
                     </select>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-1">Setor / Quadra</label>
                       <select 

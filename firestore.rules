@@ -152,5 +152,96 @@ service cloud.firestore {
                       && resource.data.status == 'open'
                     );
     }
+
+    // User profile for citizen area
+    match /user_profiles/{uid} {
+      allow read: if isSignedIn() && (request.auth.uid == uid || isSuperAdmin());
+      allow create, update: if isSignedIn() && request.auth.uid == uid;
+      allow delete: if isSuperAdmin();
+    }
+
+    // SCI - Operational management
+    match /sci_operational_records/{recordId} {
+      allow read: if isSignedIn() && isStaff(resource.data.tenantId);
+      allow create: if isSignedIn() && isStaff(request.resource.data.tenantId);
+      allow update, delete: if isSignedIn() && isStaff(resource.data.tenantId);
+    }
+
+    // SCI - Occurrences
+    match /sci_occurrences/{occurrenceId} {
+      allow read: if isSignedIn() && isStaff(resource.data.tenantId);
+      allow create: if isSignedIn() && isStaff(request.resource.data.tenantId);
+      allow update, delete: if isSignedIn() && isStaff(resource.data.tenantId);
+    }
+
+    // SCI - Internal notifications
+    match /sci_internal_notifications/{notificationId} {
+      allow read: if isSignedIn() && isStaff(resource.data.tenantId);
+      allow create: if isSignedIn() && isStaff(request.resource.data.tenantId);
+      allow update, delete: if isSignedIn() && isStaff(resource.data.tenantId);
+    }
+
+    // SCI - Sanitary checks
+    match /sci_sanitary_checks/{checkId} {
+      allow read: if isSignedIn() && isStaff(resource.data.tenantId);
+      allow create: if isSignedIn() && isStaff(request.resource.data.tenantId);
+      allow update, delete: if isSignedIn() && isStaff(resource.data.tenantId);
+    }
+
+    // SCI - Environmental checks
+    match /sci_environmental_checks/{checkId} {
+      allow read: if isSignedIn() && isStaff(resource.data.tenantId);
+      allow create: if isSignedIn() && isStaff(request.resource.data.tenantId);
+      allow update, delete: if isSignedIn() && isStaff(resource.data.tenantId);
+    }
+
+    // SCI - Financial records
+    match /sci_financial_records/{recordId} {
+      allow read: if isSignedIn() && isStaff(resource.data.tenantId);
+      allow create: if isSignedIn() && isStaff(request.resource.data.tenantId);
+      allow update, delete: if isSignedIn() && isStaff(resource.data.tenantId);
+    }
+
+    // SCI - Stock items
+    match /sci_stock_items/{itemId} {
+      allow read: if isSignedIn() && isStaff(resource.data.tenantId);
+      allow create: if isSignedIn() && isStaff(request.resource.data.tenantId);
+      allow update, delete: if isSignedIn() && isStaff(resource.data.tenantId);
+    }
+
+    // SCI - Documents
+    match /sci_documents/{documentId} {
+      allow read: if isSignedIn() && isStaff(resource.data.tenantId);
+      allow create: if isSignedIn() && isStaff(request.resource.data.tenantId);
+      allow update, delete: if isSignedIn() && isStaff(resource.data.tenantId);
+    }
+
+    // SCI - AI agents and chatbots
+    match /sci_ai_agents/{agentId} {
+      allow read: if isSignedIn() && isStaff(resource.data.tenantId);
+      allow create: if isSignedIn() && isStaff(request.resource.data.tenantId);
+      allow update, delete: if isSignedIn() && isStaff(resource.data.tenantId);
+    }
+
+    // SCI - Generated reports
+    match /sci_reports/{reportId} {
+      allow read: if isSignedIn() && isStaff(resource.data.tenantId);
+      allow create: if isSignedIn() && isStaff(request.resource.data.tenantId);
+      allow update, delete: if isSignedIn() && isStaff(resource.data.tenantId);
+    }
+
+    // SCI - Support tickets
+    match /sci_support_tickets/{ticketId} {
+      allow read: if isSignedIn() && isStaff(resource.data.tenantId);
+      allow create: if isSignedIn() && isStaff(request.resource.data.tenantId);
+      allow update, delete: if isSignedIn() && isStaff(resource.data.tenantId);
+    }
+
+    // SCI - Training sessions
+    match /sci_training_sessions/{sessionId} {
+      allow read: if isSignedIn() && isStaff(resource.data.tenantId);
+      allow create: if isSignedIn() && isStaff(request.resource.data.tenantId);
+      allow update, delete: if isSignedIn() && isStaff(resource.data.tenantId);
+    }
   }
 }

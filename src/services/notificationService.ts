@@ -22,6 +22,7 @@ export interface DeathNotification {
   createdBy: string;
   createdAt: any;
   status: 'submitted' | 'reviewing' | 'allocated' | 'rejected';
+  cemeteryId?: string;
   
   deceased: {
     name: string;
@@ -35,6 +36,8 @@ export interface DeathNotification {
     achievements?: string;
     obituary?: string;
     epitaph?: string;
+    relationshipType?: string;
+    relationshipLabel?: string;
   };
 
   photoUrl: string | null;
@@ -86,7 +89,6 @@ export async function createDeathNotification(tenantId: string, data: any, files
     createdBy: auth.currentUser?.uid || '',
     createdAt: serverTimestamp(),
     status: 'submitted',
-    // @ts-ignore - cemeteryId is new
     cemeteryId: data.cemeteryId,
     deceased: {
       name: data.name,
@@ -100,6 +102,8 @@ export async function createDeathNotification(tenantId: string, data: any, files
       achievements: data.achievements,
       obituary: data.obituary,
       epitaph: data.epitaph,
+      relationshipType: data.relationshipType,
+      relationshipLabel: data.relationshipLabel,
     },
     photoUrl,
     documents: uploadedDocs,

@@ -157,7 +157,7 @@ export default function AdminReportDeath() {
                 <input {...form1.register('name')} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 outline-none" />
                 {form1.formState.errors.name && <p className="text-red-500 text-xs mt-1">{String(form1.formState.errors.name.message)}</p>}
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Nascimento</label>
                   <input type="date" {...form1.register('dateOfBirth')} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 outline-none" />
@@ -305,7 +305,7 @@ export default function AdminReportDeath() {
               {form4.formState.errors.plotId && <p className="text-red-500 text-xs mt-1">{String(form4.formState.errors.plotId.message)}</p>}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Data do Velório</label>
                 <input type="date" {...form4.register('wakeDate')} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 outline-none" />
@@ -343,7 +343,7 @@ export default function AdminReportDeath() {
                   <p>{formData.city} - {formData.state}</p>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-200">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-slate-200">
                 <div>
                   <span className="font-bold block text-slate-800">Nascimento</span>
                   {formData.dateOfBirth}

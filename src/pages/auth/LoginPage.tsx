@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { auth } from '@/lib/firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { ShieldCheck } from 'lucide-react';
+import AppLogo from '@/components/AppLogo';
 
 const loginSchema = z.object({
   email: z.string().email('E-mail inválido'),
@@ -58,7 +59,9 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-blue-50 px-4">
       <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-blue-100">
         <div className="text-center mb-8">
-          <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white font-serif font-bold text-xl mx-auto mb-4">M</div>
+          <div className="mx-auto mb-4 w-fit">
+            <AppLogo size={48} className="bg-transparent p-0" fallbackTextClassName="text-xl" />
+          </div>
           <h1 className="text-2xl font-serif text-blue-900 font-bold">Bem-vindo de volta</h1>
           <p className="text-slate-500 mt-2">Acesse sua conta para gerenciar memoriais</p>
         </div>

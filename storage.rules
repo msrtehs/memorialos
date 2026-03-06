@@ -60,6 +60,11 @@ service firebase.storage {
       allow write: if isOwner(userId) || isStaff();
     }
 
+    match /sci-documents/{userId}/{fileName=**} {
+      allow read: if isOwner(userId) || isStaff();
+      allow write: if isOwner(userId) || isStaff();
+    }
+
     // Legacy/alternative path for memorial photos.
     match /memorials/{memorialId}/photos/{fileName=**} {
       allow read: if true;
