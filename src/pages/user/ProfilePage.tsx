@@ -17,7 +17,6 @@ export default function ProfilePage() {
     address: '',
     emergencyContact: '',
     preferredContact: '',
-    relationshipPreference: '',
     notes: ''
   });
 
@@ -36,7 +35,6 @@ export default function ProfilePage() {
             address: profile.address || '',
             emergencyContact: profile.emergencyContact || '',
             preferredContact: profile.preferredContact || '',
-            relationshipPreference: profile.relationshipPreference || '',
             notes: profile.notes || '',
             photoUrl: profile.photoUrl || user.photoURL || ''
           });
@@ -192,15 +190,6 @@ export default function ProfilePage() {
               <option value="telefone">Telefone</option>
               <option value="whatsapp">WhatsApp</option>
             </select>
-          </div>
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-slate-700 mb-1">Relacao mais comum com o falecido</label>
-            <input
-              value={form.relationshipPreference || ''}
-              onChange={(e) => setForm((prev) => ({ ...prev, relationshipPreference: e.target.value }))}
-              className="w-full border border-slate-300 rounded-lg px-3 py-2"
-              placeholder="Ex: amigo, filha, neto"
-            />
           </div>
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-slate-700 mb-1">Observacoes uteis para atendimento</label>

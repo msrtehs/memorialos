@@ -293,32 +293,56 @@ export default function ReportDeath() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Cidade</label>
-                <input {...form1.register('city')} className="w-full px-4 py-3 border border-slate-300 rounded-lg" />
+                <input
+                  {...form1.register('city')}
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg"
+                  placeholder="Ex: Salvador"
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Estado</label>
-                <input {...form1.register('state')} className="w-full px-4 py-3 border border-slate-300 rounded-lg" />
+                <input
+                  {...form1.register('state')}
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg"
+                  placeholder="Ex: BA"
+                />
               </div>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Profissao</label>
-              <input {...form1.register('profession')} className="w-full px-4 py-3 border border-slate-300 rounded-lg" />
+              <input
+                {...form1.register('profession')}
+                className="w-full px-4 py-3 border border-slate-300 rounded-lg"
+                placeholder="Ex: Professor"
+              />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Hobbies e paixoes</label>
-              <textarea {...form1.register('hobbies')} className="w-full px-4 py-3 border border-slate-300 rounded-lg h-24" />
+              <textarea
+                {...form1.register('hobbies')}
+                className="w-full px-4 py-3 border border-slate-300 rounded-lg h-24"
+                placeholder="Ex: Jardinagem, leitura e musica."
+              />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Familia</label>
-              <textarea {...form1.register('familyMembers')} className="w-full px-4 py-3 border border-slate-300 rounded-lg h-24" />
+              <textarea
+                {...form1.register('familyMembers')}
+                className="w-full px-4 py-3 border border-slate-300 rounded-lg h-24"
+                placeholder="Ex: Esposa Maria, filhos Joao e Ana."
+              />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Realizacoes importantes</label>
-              <textarea {...form1.register('achievements')} className="w-full px-4 py-3 border border-slate-300 rounded-lg h-24" />
+              <textarea
+                {...form1.register('achievements')}
+                className="w-full px-4 py-3 border border-slate-300 rounded-lg h-24"
+                placeholder="Ex: Fundou uma escola comunitaria."
+              />
             </div>
 
             <div className="border border-blue-100 rounded-xl p-4 bg-blue-50/50">
