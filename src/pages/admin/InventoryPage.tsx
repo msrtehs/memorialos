@@ -38,6 +38,8 @@ export default function InventoryPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [riskFilter, setRiskFilter] = useState('all');
   const [sectorFilter, setSectorFilter] = useState('all');
+  const [selectedPlot, setSelectedPlot] = useState<Plot | null>(null);
+  const [inspectStatus, setInspectStatus] = useState<Plot['status']>('available');
 
   const [newPlot, setNewPlot] = useState({
     sectorId: '',
@@ -51,7 +53,13 @@ export default function InventoryPage() {
     sanitaryRisk: 'low' as Plot['sanitaryRisk'],
     environmentalRisk: 'low' as Plot['environmentalRisk'],
     structuralStatus: 'ok' as Plot['structuralStatus'],
-    documentStatus: 'regular' as Plot['documentStatus']
+    documentStatus: 'regular' as Plot['documentStatus'],
+    burialDate: '',
+    exhumationDeadlineYears: 3,
+    concessionHolder: '',
+    concessionType: 'perpetual' as 'temporary' | 'perpetual',
+    concessionStartDate: '',
+    concessionEndDate: ''
   });
 
   const loadData = async () => {
@@ -109,6 +117,30 @@ export default function InventoryPage() {
     };
   }, [filteredPlots]);
 
+  const sectorCenters = useMemo<Record<string, { name: string; left: string; top: string }>>(() => {
+    const map: Record<string, { name: string; left: string; top: string }> = {};
+    if (!geoBounds) return map;
+    const byId: Record<string, Plot[]> = {};
+    filteredPlots.forEach((p) => {
+      if (p.sectorId && Number.isFinite(p.latitude) && Number.isFinite(p.longitude)) {
+        if (!byId[p.sectorId]) byId[p.sectorId] = [];
+        byId[p.sectorId].push(p);
+      }
+    });
+    const latSpan = geoBounds.maxLat - geoBounds.minLat || 0.0001;
+    const lngSpan = geoBounds.maxLng - geoBounds.minLng || 0.0001;
+    Object.entries(byId).forEach(([id, ps]) => {
+      const avgLat = ps.reduce((s, p) => s + Number(p.latitude), 0) / ps.length;
+      const avgLng = ps.reduce((s, p) => s + Number(p.longitude), 0) / ps.length;
+      map[id] = {
+        name: ps[0].sectorName || id,
+        left: `${((avgLng - geoBounds.minLng) / lngSpan) * 100}%`,
+        top: `${100 - ((avgLat - geoBounds.minLat) / latSpan) * 100}%`
+      };
+    });
+    return map;
+  }, [filteredPlots, geoBounds]);
+
   const getMapPosition = (plot: Plot) => {
     if (!geoBounds || !plot.latitude || !plot.longitude) return { left: '50%', top: '50%' };
     const latSpan = geoBounds.maxLat - geoBounds.minLat || 0.0001;
@@ -153,7 +185,13 @@ export default function InventoryPage() {
         sanitaryRisk: newPlot.sanitaryRisk,
         environmentalRisk: newPlot.environmentalRisk,
         structuralStatus: newPlot.structuralStatus,
-        documentStatus: newPlot.documentStatus
+        documentStatus: newPlot.documentStatus,
+        burialDate: newPlot.burialDate || undefined,
+        exhumationDeadlineYears: newPlot.exhumationDeadlineYears || undefined,
+        concessionHolder: newPlot.concessionHolder || undefined,
+        concessionType: newPlot.concessionHolder ? newPlot.concessionType : undefined,
+        concessionStartDate: newPlot.concessionStartDate || undefined,
+        concessionEndDate: newPlot.concessionEndDate || undefined
       });
       setIsModalOpen(false);
       setNewPlot((prev) => ({
@@ -162,7 +200,11 @@ export default function InventoryPage() {
         row: '',
         column: '',
         latitude: '',
-        longitude: ''
+        longitude: '',
+        burialDate: '',
+        concessionHolder: '',
+        concessionStartDate: '',
+        concessionEndDate: ''
       }));
       await loadData();
     } catch (error) {
@@ -259,6 +301,13 @@ export default function InventoryPage() {
             <h2 className="font-bold text-slate-800">Mapa digital interativo (GIS)</h2>
             <span className="text-xs text-slate-500">{filteredPlots.length} jazigos visiveis</span>
           </div>
+          <div className="px-5 py-3 border-b border-slate-200 flex items-center gap-5 text-xs text-slate-600">
+            {([['bg-emerald-400', 'Disponivel'], ['bg-rose-400', 'Ocupado'], ['bg-amber-400', 'Reservado'], ['bg-slate-400', 'Bloqueado']] as [string, string][]).map(([color, label]) => (
+              <span key={label} className="flex items-center gap-1.5">
+                <span className={`w-3 h-3 rounded-full ${color}`}></span>{label}
+              </span>
+            ))}
+          </div>
           <div className="p-5">
             {filteredPlots.length === 0 && (
               <div className="h-72 rounded-lg border border-dashed border-slate-300 text-slate-400 flex items-center justify-center">
@@ -268,28 +317,36 @@ export default function InventoryPage() {
             {filteredPlots.length > 0 && (
               <div className="relative h-[420px] rounded-xl bg-slate-100 border border-slate-200 overflow-hidden">
                 <div className="absolute inset-0 bg-[radial-gradient(circle,_rgba(100,116,139,0.18)_1px,_transparent_1px)] bg-[length:20px_20px]" />
+                {(Object.values(sectorCenters) as { name: string; left: string; top: string }[]).map((sc) => (
+                  <span
+                    key={sc.name}
+                    style={{ left: sc.left, top: sc.top }}
+                    className="absolute -translate-x-1/2 -translate-y-1/2 text-xs font-semibold text-slate-700 bg-white/80 px-2 py-1 rounded shadow-sm pointer-events-none z-10"
+                  >
+                    {sc.name}
+                  </span>
+                ))}
                 {filteredPlots.map((plot) => {
                   const point = getMapPosition(plot);
+                  const dotSize = plot.status === 'occupied' ? 'w-5 h-5' : plot.status === 'blocked' ? 'w-4 h-4' : 'w-3.5 h-3.5';
                   return (
                     <button
                       key={plot.id}
                       style={point}
-                      title={`${plot.code} - ${plot.status}`}
-                      onClick={() =>
-                        handleStatusChange(
-                          plot.id!,
-                          plot.status === 'available' ? 'reserved' : plot.status === 'reserved' ? 'occupied' : plot.status === 'occupied' ? 'available' : 'blocked'
-                        )
-                      }
-                      className={`absolute -translate-x-1/2 -translate-y-1/2 w-4 h-4 rounded-full border ${statusClass[plot.status] || statusClass.available}`}
+                      title={`${plot.code} — ${plot.status}${plot.occupantName ? ` — ${plot.occupantName}` : ''}`}
+                      onClick={() => { setSelectedPlot(plot); setInspectStatus(plot.status); }}
+                      className={`absolute -translate-x-1/2 -translate-y-1/2 ${dotSize} rounded-full border hover:scale-125 transition-transform ${statusClass[plot.status] || statusClass.available}`}
                     />
                   );
                 })}
               </div>
             )}
-            <p className="text-xs text-slate-500 mt-3">
-              Clique em um ponto para alternar status rapidamente (disponivel, reservado, ocupado). Coordenadas sao baseadas em latitude/longitude do cadastro.
-            </p>
+            <div className="flex gap-5 text-xs text-slate-500 mt-3">
+              <span><strong className="text-slate-700">{plots.filter((p) => p.status === 'occupied').length}</strong> ocupados</span>
+              <span><strong className="text-slate-700">{plots.filter((p) => p.status === 'available').length}</strong> disponiveis</span>
+              <span><strong className="text-slate-700">{plots.filter((p) => p.status === 'reserved').length}</strong> reservados</span>
+              <span><strong className="text-slate-700">{plots.filter((p) => p.status === 'blocked').length}</strong> bloqueados</span>
+            </div>
           </div>
         </div>
       )}
@@ -304,6 +361,7 @@ export default function InventoryPage() {
                 <th className="px-4 py-3">Lat / Lng</th>
                 <th className="px-4 py-3">Risco</th>
                 <th className="px-4 py-3">Documentos</th>
+                <th className="px-4 py-3">Titular</th>
                 <th className="px-4 py-3">Status</th>
               </tr>
             </thead>
@@ -325,6 +383,7 @@ export default function InventoryPage() {
                       {plot.documentStatus === 'pending' ? 'Pendente' : 'Regular'}
                     </span>
                   </td>
+                  <td className="px-4 py-3 text-xs text-slate-600">{(plot as any).concessionHolder || '-'}</td>
                   <td className="px-4 py-3">
                     <select
                       value={plot.status}
@@ -342,7 +401,7 @@ export default function InventoryPage() {
               ))}
               {!loading && filteredPlots.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-slate-500">Nenhum jazigo encontrado para os filtros selecionados.</td>
+                  <td colSpan={7} className="px-4 py-8 text-center text-slate-500">Nenhum jazigo encontrado para os filtros selecionados.</td>
                 </tr>
               )}
             </tbody>
@@ -460,6 +519,41 @@ export default function InventoryPage() {
                 </div>
               </div>
 
+              {newPlot.status === 'occupied' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm text-slate-600 block mb-1">Data sepultamento</label>
+                    <input type="date" value={newPlot.burialDate} onChange={(e) => setNewPlot((prev) => ({ ...prev, burialDate: e.target.value }))} className="w-full border border-slate-300 rounded-lg p-2.5" />
+                  </div>
+                  <div>
+                    <label className="text-sm text-slate-600 block mb-1">Prazo exumacao (anos)</label>
+                    <input type="number" value={newPlot.exhumationDeadlineYears} min={1} max={99} onChange={(e) => setNewPlot((prev) => ({ ...prev, exhumationDeadlineYears: Number(e.target.value) }))} className="w-full border border-slate-300 rounded-lg p-2.5" />
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                  <label className="text-sm text-slate-600 block mb-1">Titular da concessao</label>
+                  <input value={newPlot.concessionHolder} onChange={(e) => setNewPlot((prev) => ({ ...prev, concessionHolder: e.target.value }))} className="w-full border border-slate-300 rounded-lg p-2.5" placeholder="Nome completo" />
+                </div>
+                <div>
+                  <label className="text-sm text-slate-600 block mb-1">Tipo concessao</label>
+                  <select value={newPlot.concessionType} onChange={(e) => setNewPlot((prev) => ({ ...prev, concessionType: e.target.value as any }))} className="w-full border border-slate-300 rounded-lg p-2.5 bg-white">
+                    <option value="perpetual">Perpetua</option>
+                    <option value="temporary">Temporaria</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm text-slate-600 block mb-1">Inicio concessao</label>
+                  <input type="date" value={newPlot.concessionStartDate} onChange={(e) => setNewPlot((prev) => ({ ...prev, concessionStartDate: e.target.value }))} className="w-full border border-slate-300 rounded-lg p-2.5" />
+                </div>
+                <div>
+                  <label className="text-sm text-slate-600 block mb-1">Vencimento concessao</label>
+                  <input type="date" value={newPlot.concessionEndDate} onChange={(e) => setNewPlot((prev) => ({ ...prev, concessionEndDate: e.target.value }))} className="w-full border border-slate-300 rounded-lg p-2.5" />
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
                   <label className="text-sm text-slate-600 block mb-1">Risco sanitario</label>
@@ -503,6 +597,83 @@ export default function InventoryPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {selectedPlot && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+              <h3 className="font-bold text-slate-800">Jazigo {selectedPlot.code}</h3>
+              <button onClick={() => setSelectedPlot(null)} className="text-sm text-slate-600 hover:text-slate-900">Fechar</button>
+            </div>
+            <div className="p-5 space-y-4 text-sm">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-xs text-slate-500">Setor</p>
+                  <p className="font-medium text-slate-800">{selectedPlot.sectorName || selectedPlot.sectorId || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Tipo</p>
+                  <p className="font-medium text-slate-800">{selectedPlot.type}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Ocupante</p>
+                  <p className="font-medium text-slate-800">{selectedPlot.occupantName || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Titular</p>
+                  <p className="font-medium text-slate-800">{(selectedPlot as any).concessionHolder || '-'}</p>
+                </div>
+                {(selectedPlot as any).burialDate && (
+                  <div>
+                    <p className="text-xs text-slate-500">Data sepultamento</p>
+                    <p className="font-medium text-slate-800">{(selectedPlot as any).burialDate}</p>
+                  </div>
+                )}
+                {(selectedPlot as any).exhumationDeadlineYears && (
+                  <div>
+                    <p className="text-xs text-slate-500">Prazo exumacao</p>
+                    <p className="font-medium text-slate-800">{(selectedPlot as any).exhumationDeadlineYears} anos</p>
+                  </div>
+                )}
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-xs">
+                <span className={`px-2 py-1 rounded-full text-center border ${selectedPlot.sanitaryRisk === 'high' ? 'bg-rose-100 text-rose-700 border-rose-200' : selectedPlot.sanitaryRisk === 'medium' ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                  Sanitario: {selectedPlot.sanitaryRisk || 'low'}
+                </span>
+                <span className={`px-2 py-1 rounded-full text-center border ${selectedPlot.environmentalRisk === 'high' ? 'bg-rose-100 text-rose-700 border-rose-200' : selectedPlot.environmentalRisk === 'medium' ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                  Ambiental: {selectedPlot.environmentalRisk || 'low'}
+                </span>
+                <span className={`px-2 py-1 rounded-full text-center border ${selectedPlot.structuralStatus === 'critical' ? 'bg-rose-100 text-rose-700 border-rose-200' : selectedPlot.structuralStatus === 'attention' ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                  Estrutural: {selectedPlot.structuralStatus || 'ok'}
+                </span>
+              </div>
+              <div className="flex items-center gap-3 pt-2 border-t border-slate-100">
+                <label className="text-xs text-slate-500 shrink-0">Alterar status:</label>
+                <select
+                  value={inspectStatus}
+                  onChange={(e) => setInspectStatus(e.target.value as Plot['status'])}
+                  className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white flex-1"
+                >
+                  <option value="available">Disponivel</option>
+                  <option value="occupied">Ocupado</option>
+                  <option value="reserved">Reservado</option>
+                  <option value="blocked">Bloqueado</option>
+                </select>
+                <button
+                  onClick={async () => {
+                    await handleStatusChange(selectedPlot.id!, inspectStatus);
+                    setSelectedPlot(null);
+                  }}
+                  disabled={saving}
+                  className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-60"
+                >
+                  Salvar
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

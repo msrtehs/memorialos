@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, Bot, CheckCircle, Droplets, FileText, Leaf, RefreshCw, ShieldAlert, TrendingUp } from 'lucide-react';
-import { Pie, PieChart, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import { AlertTriangle, Bot, Calendar, CheckCircle, Clock, Droplets, FileText, Leaf, RefreshCw, ShieldAlert, TrendingUp } from 'lucide-react';
+import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useAdmin } from '@/contexts/AdminContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { createSanitaryCheck, getSciExecutiveSnapshot, SciExecutiveSnapshot } from '@/services/sciService';
+import { createSanitaryCheck, getMonthlyBurialTrend, getSciExecutiveSnapshot, SciExecutiveSnapshot } from '@/services/sciService';
 
 const cardClass = 'bg-white p-6 rounded-xl shadow-sm border border-slate-200';
 
@@ -14,6 +14,7 @@ const defaultSnapshot: SciExecutiveSnapshot = {
   availablePlots: 0,
   occupiedPlots: 0,
   reservedPlots: 0,
+  blockedPlots: 0,
   occupancyRate: 0,
   totalBurials: 0,
   totalExhumations: 0,
@@ -24,6 +25,11 @@ const defaultSnapshot: SciExecutiveSnapshot = {
   structuralFailures: 0,
   totalRevenue: 0,
   totalExpenses: 0,
+  averageAnnualBurials: 0,
+  saturationProjectionYears: null,
+  pendingExhumations: 0,
+  approachingExhumations: 0,
+  expiringConcessions: 0,
   priorities: []
 };
 
@@ -34,6 +40,7 @@ export default function AdminDashboard() {
 
   const [snapshot, setSnapshot] = useState<SciExecutiveSnapshot>(defaultSnapshot);
   const [loading, setLoading] = useState(true);
+  const [monthlyTrend, setMonthlyTrend] = useState<{ month: string; count: number }[]>([]);
   const [showChecklist, setShowChecklist] = useState(false);
   const [checklist, setChecklist] = useState({
     area: '',
@@ -52,8 +59,12 @@ export default function AdminDashboard() {
     }
     setLoading(true);
     try {
-      const data = await getSciExecutiveSnapshot(tenantId, selectedCemeteryId);
+      const [data, trend] = await Promise.all([
+        getSciExecutiveSnapshot(tenantId, selectedCemeteryId),
+        getMonthlyBurialTrend(tenantId, selectedCemeteryId === 'all' ? undefined : selectedCemeteryId)
+      ]);
       setSnapshot(data);
+      setMonthlyTrend(trend);
     } catch (error) {
       console.error('Erro ao carregar dashboard executivo:', error);
     } finally {
@@ -73,6 +84,14 @@ export default function AdminDashboard() {
     ],
     [snapshot]
   );
+
+  const saturationColor = snapshot.saturationProjectionYears === null
+    ? 'text-slate-400'
+    : snapshot.saturationProjectionYears < 3
+      ? 'text-rose-600'
+      : snapshot.saturationProjectionYears <= 7
+        ? 'text-amber-600'
+        : 'text-emerald-600';
 
   const handleSaveChecklist = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -126,17 +145,65 @@ export default function AdminDashboard() {
         </button>
       </div>
 
+      {/* Row 1: Occupancy, Available, Saturation, Occurrences */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
         <button onClick={() => navigate('/admin/inventario')} className={`${cardClass} text-left hover:shadow-md transition-shadow`}>
           <p className="text-sm text-slate-500">Taxa de ocupacao</p>
           <p className="text-3xl font-bold text-slate-900 mt-2">{snapshot.occupancyRate}%</p>
           <p className="text-xs text-slate-500 mt-2">{snapshot.occupiedPlots} ocupados de {snapshot.totalPlots} jazigos</p>
+          <div className="w-full bg-slate-200 rounded-full h-2 mt-3">
+            <div
+              className={`h-2 rounded-full ${snapshot.occupancyRate > 85 ? 'bg-rose-500' : snapshot.occupancyRate > 60 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+              style={{ width: `${Math.min(snapshot.occupancyRate, 100)}%` }}
+            />
+          </div>
+        </button>
+
+        <button onClick={() => navigate('/admin/inventario')} className={`${cardClass} text-left hover:shadow-md transition-shadow`}>
+          <p className="text-sm text-slate-500">Jazigos disponiveis</p>
+          <p className="text-3xl font-bold text-emerald-600 mt-2">{snapshot.availablePlots}</p>
+          <p className="text-xs text-slate-500 mt-2">de {snapshot.totalPlots} total ({snapshot.blockedPlots} bloqueados)</p>
+        </button>
+
+        <div className={`${cardClass}`}>
+          <p className="text-sm text-slate-500 flex items-center gap-1"><Clock size={14} /> Projecao de saturacao</p>
+          <p className={`text-3xl font-bold mt-2 ${saturationColor}`}>
+            {snapshot.saturationProjectionYears !== null
+              ? `${snapshot.saturationProjectionYears.toFixed(1)} anos`
+              : 'Sem dados'}
+          </p>
+          <p className="text-xs text-slate-500 mt-2">
+            {snapshot.averageAnnualBurials > 0
+              ? `Media: ${snapshot.averageAnnualBurials.toFixed(1)} sepultamentos/ano`
+              : 'Sem historico de sepultamentos'}
+          </p>
+        </div>
+
+        <button onClick={() => navigate('/admin/seguranca')} className={`${cardClass} text-left hover:shadow-md transition-shadow`}>
+          <p className="text-sm text-slate-500">Ocorrencias abertas</p>
+          <p className="text-3xl font-bold text-slate-900 mt-2">{snapshot.openOccurrences}</p>
+          <p className="text-xs text-slate-500 mt-2">Monitoramento de risco e conformidade</p>
+        </button>
+      </div>
+
+      {/* Row 2: Burials, Exhumations, Documents, Operational Flow */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+        <button onClick={() => navigate('/admin/operacional')} className={`${cardClass} text-left hover:shadow-md transition-shadow`}>
+          <p className="text-sm text-slate-500 flex items-center gap-1"><Calendar size={14} /> Sepultamentos</p>
+          <p className="text-3xl font-bold text-slate-900 mt-2">{snapshot.totalBurials}</p>
+          <p className="text-xs text-slate-500 mt-2">Registros de sepultamento no periodo</p>
         </button>
 
         <button onClick={() => navigate('/admin/operacional')} className={`${cardClass} text-left hover:shadow-md transition-shadow`}>
-          <p className="text-sm text-slate-500">Fluxo operacional</p>
-          <p className="text-3xl font-bold text-slate-900 mt-2">{snapshot.totalBurials + snapshot.totalExhumations}</p>
-          <p className="text-xs text-slate-500 mt-2">{snapshot.totalBurials} sepultamentos e {snapshot.totalExhumations} exumacoes</p>
+          <p className="text-sm text-slate-500">Exumacoes pendentes</p>
+          <p className={`text-3xl font-bold mt-2 ${snapshot.pendingExhumations > 0 ? 'text-rose-600' : 'text-slate-900'}`}>
+            {snapshot.pendingExhumations}
+          </p>
+          <p className="text-xs text-slate-500 mt-2">
+            {snapshot.approachingExhumations > 0
+              ? `+ ${snapshot.approachingExhumations} nos proximos 6 meses`
+              : 'Nenhuma exumacao proxima do prazo'}
+          </p>
         </button>
 
         <button onClick={() => navigate('/admin/documentos')} className={`${cardClass} text-left hover:shadow-md transition-shadow`}>
@@ -145,12 +212,30 @@ export default function AdminDashboard() {
           <p className="text-xs text-slate-500 mt-2">Digitalizacao, validacao e rastreabilidade</p>
         </button>
 
-        <button onClick={() => navigate('/admin/seguranca')} className={`${cardClass} text-left hover:shadow-md transition-shadow`}>
-          <p className="text-sm text-slate-500">Ocorrencias abertas</p>
-          <p className="text-3xl font-bold text-slate-900 mt-2">{snapshot.openOccurrences}</p>
-          <p className="text-xs text-slate-500 mt-2">Monitoramento de risco e conformidade</p>
+        <button onClick={() => navigate('/admin/operacional')} className={`${cardClass} text-left hover:shadow-md transition-shadow`}>
+          <p className="text-sm text-slate-500">Fluxo operacional</p>
+          <p className="text-3xl font-bold text-slate-900 mt-2">{snapshot.totalBurials + snapshot.totalExhumations}</p>
+          <p className="text-xs text-slate-500 mt-2">{snapshot.totalBurials} sepultamentos e {snapshot.totalExhumations} exumacoes</p>
         </button>
       </div>
+
+      {/* Monthly Burial Trend BarChart */}
+      {monthlyTrend.length > 0 && (
+        <div className={cardClass}>
+          <h2 className="text-lg font-bold text-slate-800 mb-4">Tendencia mensal de sepultamentos</h2>
+          <div className="h-48">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={monthlyTrend}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke="#94a3b8" />
+                <YAxis tick={{ fontSize: 11 }} stroke="#94a3b8" allowDecimals={false} />
+                <Tooltip />
+                <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Sepultamentos" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
         <div className={`${cardClass} xl:col-span-2`}>

@@ -63,13 +63,38 @@ export interface Plot {
   structuralStatus?: 'ok' | 'attention' | 'critical';
   documentStatus?: 'regular' | 'pending';
   lastInspectionAt?: any;
+  // Exhumation control
+  burialDate?: string;
+  exhumationDeadlineYears?: number; // Default 3 years (Brazilian law)
+  // Concession control
+  concessionHolder?: string;
+  concessionStartDate?: string;
+  concessionEndDate?: string;
+  concessionType?: 'temporary' | 'perpetual';
   createdAt?: any;
   updatedAt?: any;
+}
+
+export interface PlotConcession {
+  id?: string;
+  tenantId: string;
+  plotId: string;
+  cemeteryId: string;
+  holderName: string;
+  holderDocument?: string; // CPF
+  concessionType: 'temporary' | 'perpetual';
+  startDate: string;
+  endDate?: string;
+  transferredFrom?: string;
+  notes?: string;
+  createdAt?: any;
+  createdBy?: string;
 }
 
 const CEMETERIES_COL = 'cemeteries';
 const SECTORS_COL = 'sectors';
 const PLOTS_COL = 'plots';
+const CONCESSIONS_COL = 'plot_concessions';
 
 // --- Cemeteries ---
 
@@ -260,4 +285,41 @@ export async function updatePlot(plotId: string, tenantId: string, data: Partial
     updatedBy: auth.currentUser?.uid
   });
   await logAction(tenantId, 'UPDATE_PLOT', PLOTS_COL, plotId, oldData, data);
+}
+
+// --- Concessions ---
+
+export async function listPlotConcessions(plotId: string): Promise<PlotConcession[]> {
+  const q = query(collection(db, CONCESSIONS_COL), where('plotId', '==', plotId));
+  const snapshot = await getDocs(q);
+  const items = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as PlotConcession));
+  return items.sort((a, b) => {
+    const aTime = a.createdAt?.seconds || 0;
+    const bTime = b.createdAt?.seconds || 0;
+    return bTime - aTime;
+  });
+}
+
+export async function createPlotConcession(
+  tenantId: string,
+  payload: Omit<PlotConcession, 'id' | 'tenantId' | 'createdAt' | 'createdBy'>
+): Promise<string> {
+  const data = {
+    ...payload,
+    tenantId,
+    createdAt: serverTimestamp(),
+    createdBy: auth.currentUser?.uid
+  };
+  const docRef = await addDoc(collection(db, CONCESSIONS_COL), data);
+  await logAction(tenantId, 'CREATE_PLOT_CONCESSION', CONCESSIONS_COL, docRef.id, null, data);
+
+  // Sync concession fields on the plot document
+  await updatePlot(payload.plotId, tenantId, {
+    concessionHolder: payload.holderName,
+    concessionType: payload.concessionType,
+    concessionStartDate: payload.startDate,
+    concessionEndDate: payload.endDate
+  });
+
+  return docRef.id;
 }

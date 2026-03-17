@@ -39,12 +39,17 @@ export interface OccurrenceRecord {
   id?: string;
   tenantId: string;
   cemeteryId: string;
-  category: 'structural' | 'sanitary' | 'environmental' | 'security' | 'operational';
+  category: 'structural' | 'sanitary' | 'environmental' | 'security' | 'operational' | 'cleaning' | 'lighting' | 'vegetation';
   severity: Priority;
   status: 'open' | 'in_analysis' | 'resolved';
   title: string;
   description?: string;
   location?: string;
+  plotId?: string;
+  sectorId?: string;
+  photoUrls?: string[];
+  slaDeadline?: string;
+  resolvedBy?: string;
   openedAt?: string;
   resolvedAt?: string;
   createdAt?: any;
@@ -391,12 +396,22 @@ export interface RiskIndicator {
   details: string;
 }
 
+export interface ExhumationAlert {
+  plotId: string;
+  plotCode: string;
+  sectorName: string;
+  burialDate: string;
+  deadlineDate: string;
+  daysRemaining: number;
+}
+
 export interface SciExecutiveSnapshot {
   cemeteryId: string;
   totalPlots: number;
   availablePlots: number;
   occupiedPlots: number;
   reservedPlots: number;
+  blockedPlots: number;
   occupancyRate: number;
   totalBurials: number;
   totalExhumations: number;
@@ -407,6 +422,14 @@ export interface SciExecutiveSnapshot {
   structuralFailures: number;
   totalRevenue: number;
   totalExpenses: number;
+  // Capacity management
+  averageAnnualBurials: number;
+  saturationProjectionYears: number | null;
+  // Exhumation control
+  pendingExhumations: number;
+  approachingExhumations: number;
+  // Concession control
+  expiringConcessions: number;
   priorities: RiskIndicator[];
 }
 
@@ -451,10 +474,62 @@ export async function getSciExecutiveSnapshot(tenantId: string, cemeteryId: stri
   const availablePlots = data.plots.filter((plot) => plot.status === 'available').length;
   const occupiedPlots = data.plots.filter((plot) => plot.status === 'occupied').length;
   const reservedPlots = data.plots.filter((plot) => plot.status === 'reserved').length;
+  const blockedPlots = data.plots.filter((plot) => plot.status === 'blocked').length;
   const occupancyRate = totalPlots > 0 ? Math.round((occupiedPlots / totalPlots) * 100) : 0;
 
-  const totalBurials = data.operational.filter((item) => item.type === 'burial').length;
+  const burialRecords = data.operational.filter((item) => item.type === 'burial');
+  const totalBurials = burialRecords.length;
   const totalExhumations = data.operational.filter((item) => item.type === 'exhumation').length;
+
+  // Saturation projection
+  let yearsOfOperation = 1;
+  if (burialRecords.length > 0) {
+    const timestamps = burialRecords
+      .map((r) => {
+        if (r.scheduledFor) return new Date(r.scheduledFor).getTime();
+        if (r.createdAt) return toMillis(r.createdAt);
+        return 0;
+      })
+      .filter((t) => t > 0);
+    if (timestamps.length > 0) {
+      const earliest = Math.min(...timestamps);
+      yearsOfOperation = Math.max(1, (Date.now() - earliest) / (365.25 * 24 * 60 * 60 * 1000));
+    }
+  }
+  const averageAnnualBurials = totalBurials / yearsOfOperation;
+  const saturationProjectionYears = averageAnnualBurials > 0
+    ? Math.round((availablePlots / averageAnnualBurials) * 10) / 10
+    : null;
+
+  // Exhumation deadlines
+  const now = Date.now();
+  const SIX_MONTHS_MS = 6 * 30.44 * 24 * 60 * 60 * 1000;
+  let pendingExhumations = 0;
+  let approachingExhumations = 0;
+  for (const plot of data.plots) {
+    if (plot.status === 'occupied' && plot.burialDate) {
+      const deadlineYears = plot.exhumationDeadlineYears || 3;
+      const deadlineMs = new Date(plot.burialDate).getTime() + deadlineYears * 365.25 * 24 * 60 * 60 * 1000;
+      const remaining = deadlineMs - now;
+      if (remaining <= 0) {
+        pendingExhumations++;
+      } else if (remaining <= SIX_MONTHS_MS) {
+        approachingExhumations++;
+      }
+    }
+  }
+
+  // Expiring concessions
+  let expiringConcessions = 0;
+  for (const plot of data.plots) {
+    if (plot.concessionType === 'temporary' && plot.concessionEndDate) {
+      const endMs = new Date(plot.concessionEndDate).getTime();
+      const remaining = endMs - now;
+      if (remaining > 0 && remaining <= SIX_MONTHS_MS) {
+        expiringConcessions++;
+      }
+    }
+  }
   const openOccurrences = data.occurrences.filter((item) => item.status !== 'resolved').length;
   const pendingDocuments =
     data.documents.filter((item) => item.status === 'pending').length +
@@ -529,12 +604,33 @@ export async function getSciExecutiveSnapshot(tenantId: string, cemeteryId: stri
     });
   }
 
+  if (pendingExhumations > 0) {
+    priorities.push({
+      code: 'EXHUMATION',
+      title: 'Exumacoes pendentes',
+      level: pendingExhumations > 5 ? 'critical' : 'high',
+      score: Math.min(100, pendingExhumations * 15),
+      details: `${pendingExhumations} jazigos com prazo de exumacao vencido.`
+    });
+  }
+
+  if (expiringConcessions > 0) {
+    priorities.push({
+      code: 'CONCESSION',
+      title: 'Concessoes vencendo',
+      level: expiringConcessions > 10 ? 'critical' : 'medium',
+      score: Math.min(100, expiringConcessions * 5),
+      details: `${expiringConcessions} concessoes temporarias proximas do vencimento.`
+    });
+  }
+
   return {
     cemeteryId,
     totalPlots,
     availablePlots,
     occupiedPlots,
     reservedPlots,
+    blockedPlots,
     occupancyRate,
     totalBurials,
     totalExhumations,
@@ -545,8 +641,89 @@ export async function getSciExecutiveSnapshot(tenantId: string, cemeteryId: stri
     structuralFailures,
     totalRevenue,
     totalExpenses,
+    averageAnnualBurials,
+    saturationProjectionYears,
+    pendingExhumations,
+    approachingExhumations,
+    expiringConcessions,
     priorities: priorities.sort((a, b) => b.score - a.score)
   };
+}
+
+export async function getExhumationAlerts(
+  tenantId: string,
+  cemeteryId?: string
+): Promise<{ overdue: ExhumationAlert[]; approaching: ExhumationAlert[] }> {
+  const allPlots = !cemeteryId || cemeteryId === 'all'
+    ? await getTenantPlots(tenantId)
+    : await (await import('@/services/cemeteryService')).getCemeteryPlots(cemeteryId);
+
+  const now = Date.now();
+  const SIX_MONTHS_MS = 6 * 30.44 * 24 * 60 * 60 * 1000;
+  const overdue: ExhumationAlert[] = [];
+  const approaching: ExhumationAlert[] = [];
+
+  for (const plot of allPlots) {
+    if (plot.status !== 'occupied' || !plot.burialDate) continue;
+    const deadlineYears = plot.exhumationDeadlineYears || 3;
+    const deadlineMs = new Date(plot.burialDate).getTime() + deadlineYears * 365.25 * 24 * 60 * 60 * 1000;
+    const deadlineDate = new Date(deadlineMs).toISOString().slice(0, 10);
+    const daysRemaining = Math.round((deadlineMs - now) / (24 * 60 * 60 * 1000));
+
+    const alert: ExhumationAlert = {
+      plotId: plot.id || '',
+      plotCode: plot.code,
+      sectorName: plot.sectorName || plot.sectorId,
+      burialDate: plot.burialDate,
+      deadlineDate,
+      daysRemaining
+    };
+
+    if (daysRemaining <= 0) {
+      overdue.push(alert);
+    } else if (deadlineMs - now <= SIX_MONTHS_MS) {
+      approaching.push(alert);
+    }
+  }
+
+  overdue.sort((a, b) => a.daysRemaining - b.daysRemaining);
+  approaching.sort((a, b) => a.daysRemaining - b.daysRemaining);
+
+  return { overdue, approaching };
+}
+
+export async function getMonthlyBurialTrend(
+  tenantId: string,
+  cemeteryId: string
+): Promise<{ month: string; count: number }[]> {
+  const operational = await listOperationalRecords(tenantId);
+  const burials = (cemeteryId === 'all' ? operational : operational.filter((r) => r.cemeteryId === cemeteryId))
+    .filter((r) => r.type === 'burial');
+
+  const now = new Date();
+  const monthMap = new Map<string, number>();
+
+  // Initialize last 12 months
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    monthMap.set(key, 0);
+  }
+
+  for (const record of burials) {
+    let dateStr = record.scheduledFor;
+    if (!dateStr && record.createdAt) {
+      const ms = toMillis(record.createdAt);
+      if (ms > 0) dateStr = new Date(ms).toISOString().slice(0, 10);
+    }
+    if (!dateStr) continue;
+    const key = dateStr.slice(0, 7); // YYYY-MM
+    if (monthMap.has(key)) {
+      monthMap.set(key, (monthMap.get(key) || 0) + 1);
+    }
+  }
+
+  return Array.from(monthMap.entries()).map(([month, count]) => ({ month, count }));
 }
 
 function getReportTitle(type: SCIReport['type']) {

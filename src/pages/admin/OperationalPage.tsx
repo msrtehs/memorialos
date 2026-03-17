@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { BellRing, CalendarDays, ClipboardList, FileCheck2, Layers3, Plus, Shuffle, TriangleAlert, UserRoundCheck } from 'lucide-react';
+import { BellRing, CalendarDays, ClipboardList, Clock, FileCheck2, Layers3, Plus, Shuffle, TriangleAlert, UserRoundCheck } from 'lucide-react';
 import { useAdmin } from '@/contexts/AdminContext';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   createInternalNotification,
   createOccurrenceRecord,
   createOperationalRecord,
+  ExhumationAlert,
+  getExhumationAlerts,
   listInternalNotifications,
   listOccurrenceRecords,
   listOperationalRecords,
@@ -20,7 +22,8 @@ type OperationalTab =
   | 'maintenance'
   | 'document_issue'
   | 'notifications'
-  | 'occurrences';
+  | 'occurrences'
+  | 'exhumation_deadlines';
 
 const tabConfig: { key: OperationalTab; label: string; icon: any }[] = [
   { key: 'burial', label: 'Sepultamentos', icon: UserRoundCheck },
@@ -30,7 +33,8 @@ const tabConfig: { key: OperationalTab; label: string; icon: any }[] = [
   { key: 'maintenance', label: 'Manutencao', icon: ClipboardList },
   { key: 'document_issue', label: 'Emissao docs', icon: FileCheck2 },
   { key: 'notifications', label: 'Notificacoes', icon: BellRing },
-  { key: 'occurrences', label: 'Ocorrencias', icon: TriangleAlert }
+  { key: 'occurrences', label: 'Ocorrencias', icon: TriangleAlert },
+  { key: 'exhumation_deadlines', label: 'Prazos exumacao', icon: Clock }
 ];
 
 export default function OperationalPage() {
@@ -66,21 +70,28 @@ export default function OperationalPage() {
     category: 'operational',
     severity: 'medium',
     location: '',
-    description: ''
+    description: '',
+    plotId: '',
+    sectorId: '',
+    slaDeadline: ''
   });
+  const [exhumationAlerts, setExhumationAlerts] = useState<{ overdue: ExhumationAlert[]; approaching: ExhumationAlert[] } | null>(null);
 
   const loadData = async () => {
     if (!tenantId) return;
     setLoading(true);
     try {
-      const [operationalData, notificationData, occurrenceData] = await Promise.all([
+      const cemeteryId = selectedCemeteryId === 'all' ? undefined : selectedCemeteryId;
+      const [operationalData, notificationData, occurrenceData, alerts] = await Promise.all([
         listOperationalRecords(tenantId),
         listInternalNotifications(tenantId),
-        listOccurrenceRecords(tenantId)
+        listOccurrenceRecords(tenantId),
+        getExhumationAlerts(tenantId, cemeteryId)
       ]);
       setRecords(operationalData);
       setNotifications(notificationData);
       setOccurrences(occurrenceData);
+      setExhumationAlerts(alerts);
     } catch (error) {
       console.error('Erro ao carregar gestao operacional:', error);
     } finally {
@@ -186,14 +197,20 @@ export default function OperationalPage() {
         title: occurrenceForm.title,
         description: occurrenceForm.description,
         location: occurrenceForm.location,
-        openedAt: new Date().toISOString().slice(0, 16)
+        openedAt: new Date().toISOString().slice(0, 16),
+        plotId: occurrenceForm.plotId || undefined,
+        sectorId: occurrenceForm.sectorId || undefined,
+        slaDeadline: occurrenceForm.slaDeadline || undefined
       });
       setOccurrenceForm({
         title: '',
         category: 'operational',
         severity: 'medium',
         location: '',
-        description: ''
+        description: '',
+        plotId: '',
+        sectorId: '',
+        slaDeadline: ''
       });
       await loadData();
     } catch (error) {
@@ -213,7 +230,9 @@ export default function OperationalPage() {
     }
   };
 
-  const showOperationalForms = !['notifications', 'occurrences'].includes(tab);
+  const showOperationalForms = !['notifications', 'occurrences', 'exhumation_deadlines'].includes(tab);
+
+  const today = new Date().toISOString().slice(0, 10);
 
   return (
     <div className="space-y-6">
@@ -325,6 +344,9 @@ export default function OperationalPage() {
               <option value="sanitary">Sanitario</option>
               <option value="environmental">Ambiental</option>
               <option value="security">Seguranca</option>
+              <option value="cleaning">Limpeza</option>
+              <option value="lighting">Iluminacao</option>
+              <option value="vegetation">Vegetacao</option>
             </select>
             <select value={occurrenceForm.severity} onChange={(e) => setOccurrenceForm((prev) => ({ ...prev, severity: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
               <option value="low">Baixa</option>
@@ -336,41 +358,125 @@ export default function OperationalPage() {
             <button type="submit" disabled={saving} className="bg-blue-600 text-white rounded-lg px-3 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-60">
               Registrar
             </button>
+            <input value={occurrenceForm.plotId} onChange={(e) => setOccurrenceForm((prev) => ({ ...prev, plotId: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="ID do jazigo (opcional)" />
+            <input value={occurrenceForm.sectorId} onChange={(e) => setOccurrenceForm((prev) => ({ ...prev, sectorId: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Setor (opcional)" />
+            <div className="md:col-span-2">
+              <label className="text-xs text-slate-500 block mb-1">Prazo SLA</label>
+              <input type="date" value={occurrenceForm.slaDeadline} onChange={(e) => setOccurrenceForm((prev) => ({ ...prev, slaDeadline: e.target.value }))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" />
+            </div>
             <textarea value={occurrenceForm.description} onChange={(e) => setOccurrenceForm((prev) => ({ ...prev, description: e.target.value }))} className="md:col-span-6 border border-slate-300 rounded-lg px-3 py-2 text-sm h-24" placeholder="Descricao detalhada" />
           </form>
 
           <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto">
-            <table className="w-full min-w-[760px] text-sm text-left">
+            <table className="w-full min-w-[860px] text-sm text-left">
               <thead className="bg-slate-50 border-b border-slate-200 text-slate-700">
                 <tr>
                   <th className="px-4 py-3">Titulo</th>
                   <th className="px-4 py-3">Categoria</th>
                   <th className="px-4 py-3">Severidade</th>
                   <th className="px-4 py-3">Local</th>
+                  <th className="px-4 py-3">Prazo SLA</th>
                   <th className="px-4 py-3">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {scopedOccurrences.map((item) => (
-                  <tr key={item.id}>
-                    <td className="px-4 py-3 font-medium text-slate-900">{item.title}</td>
-                    <td className="px-4 py-3 text-slate-600">{item.category}</td>
-                    <td className="px-4 py-3 text-slate-600">{item.severity}</td>
-                    <td className="px-4 py-3 text-slate-600">{item.location || '-'}</td>
-                    <td className="px-4 py-3">
-                      <select value={item.status} onChange={(e) => handleStatusUpdate('sci_occurrences', item.id, e.target.value)} className="border border-slate-300 rounded px-2 py-1 text-xs bg-white">
-                        <option value="open">open</option>
-                        <option value="in_analysis">in_analysis</option>
-                        <option value="resolved">resolved</option>
-                      </select>
-                    </td>
-                  </tr>
-                ))}
+                {scopedOccurrences.map((item) => {
+                  const sla = item.slaDeadline;
+                  const slaClass = !sla ? '' : sla < today ? 'bg-rose-100 text-rose-700 border-rose-200' : (new Date(sla).getTime() - Date.now()) / 86400000 <= 3 ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-emerald-100 text-emerald-700 border-emerald-200';
+                  return (
+                    <tr key={item.id}>
+                      <td className="px-4 py-3 font-medium text-slate-900">{item.title}</td>
+                      <td className="px-4 py-3 text-slate-600">{item.category}</td>
+                      <td className="px-4 py-3 text-slate-600">{item.severity}</td>
+                      <td className="px-4 py-3 text-slate-600">{item.location || '-'}</td>
+                      <td className="px-4 py-3 text-xs">
+                        {sla ? (
+                          <span className={`px-2 py-1 rounded-full border ${slaClass}`}>{sla}</span>
+                        ) : '-'}
+                      </td>
+                      <td className="px-4 py-3">
+                        <select value={item.status} onChange={(e) => handleStatusUpdate('sci_occurrences', item.id, e.target.value)} className="border border-slate-300 rounded px-2 py-1 text-xs bg-white">
+                          <option value="open">open</option>
+                          <option value="in_analysis">in_analysis</option>
+                          <option value="resolved">resolved</option>
+                        </select>
+                      </td>
+                    </tr>
+                  );
+                })}
                 {!loading && scopedOccurrences.length === 0 && (
-                  <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-500">Sem ocorrencias registradas.</td></tr>
+                  <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500">Sem ocorrencias registradas.</td></tr>
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {tab === 'exhumation_deadlines' && (
+        <div className="space-y-6">
+          <div className="bg-rose-50 border border-rose-200 rounded-xl p-4">
+            <h3 className="font-semibold text-rose-800 mb-3 flex items-center gap-2"><Clock size={16} /> Prazos vencidos</h3>
+            {exhumationAlerts?.overdue.length ? (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[640px] text-sm text-left">
+                  <thead className="text-rose-700">
+                    <tr>
+                      <th className="px-3 py-2">Jazigo</th>
+                      <th className="px-3 py-2">Setor</th>
+                      <th className="px-3 py-2">Sepultamento</th>
+                      <th className="px-3 py-2">Prazo limite</th>
+                      <th className="px-3 py-2">Dias em atraso</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-rose-100">
+                    {exhumationAlerts.overdue.map((a) => (
+                      <tr key={a.plotId}>
+                        <td className="px-3 py-2 font-medium text-slate-900">{a.plotCode}</td>
+                        <td className="px-3 py-2 text-slate-600">{a.sectorName}</td>
+                        <td className="px-3 py-2 text-slate-600">{a.burialDate}</td>
+                        <td className="px-3 py-2 text-slate-600">{a.deadlineDate}</td>
+                        <td className="px-3 py-2 font-semibold text-rose-700">{Math.abs(a.daysRemaining)} dias</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-sm text-rose-700">Nenhum prazo vencido.</p>
+            )}
+          </div>
+
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+            <h3 className="font-semibold text-amber-800 mb-3 flex items-center gap-2"><Clock size={16} /> Proximos 6 meses</h3>
+            {exhumationAlerts?.approaching.length ? (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[640px] text-sm text-left">
+                  <thead className="text-amber-700">
+                    <tr>
+                      <th className="px-3 py-2">Jazigo</th>
+                      <th className="px-3 py-2">Setor</th>
+                      <th className="px-3 py-2">Sepultamento</th>
+                      <th className="px-3 py-2">Prazo limite</th>
+                      <th className="px-3 py-2">Dias restantes</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-amber-100">
+                    {exhumationAlerts.approaching.map((a) => (
+                      <tr key={a.plotId}>
+                        <td className="px-3 py-2 font-medium text-slate-900">{a.plotCode}</td>
+                        <td className="px-3 py-2 text-slate-600">{a.sectorName}</td>
+                        <td className="px-3 py-2 text-slate-600">{a.burialDate}</td>
+                        <td className="px-3 py-2 text-slate-600">{a.deadlineDate}</td>
+                        <td className="px-3 py-2 font-semibold text-amber-700">{a.daysRemaining} dias</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-sm text-amber-700">Nenhuma exumacao proxima do prazo nos proximos 6 meses.</p>
+            )}
           </div>
         </div>
       )}

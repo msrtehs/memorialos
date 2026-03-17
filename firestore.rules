@@ -74,6 +74,13 @@ service cloud.firestore {
       allow update, delete: if isStaff(resource.data.tenantId);
     }
 
+    // Plot concessions (ownership history)
+    match /plot_concessions/{concessionId} {
+      allow read: if true;
+      allow create: if isStaff(request.resource.data.tenantId);
+      allow update, delete: if isStaff(resource.data.tenantId);
+    }
+
     // Official deceased records
     match /deceaseds/{deceasedId} {
       allow read: if true;
