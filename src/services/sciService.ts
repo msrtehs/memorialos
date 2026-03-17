@@ -11,7 +11,7 @@ import {
 } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import { auth, db, storage } from '@/lib/firebase';
-import { getTenantPlots, Plot } from '@/services/cemeteryService';
+import { getCemeteryPlots, getTenantPlots, Plot } from '@/services/cemeteryService';
 import { logAction } from '@/services/audit';
 
 type RiskLevel = 'low' | 'medium' | 'high';
@@ -656,7 +656,7 @@ export async function getExhumationAlerts(
 ): Promise<{ overdue: ExhumationAlert[]; approaching: ExhumationAlert[] }> {
   const allPlots = !cemeteryId || cemeteryId === 'all'
     ? await getTenantPlots(tenantId)
-    : await (await import('@/services/cemeteryService')).getCemeteryPlots(cemeteryId);
+    : await getCemeteryPlots(cemeteryId);
 
   const now = Date.now();
   const SIX_MONTHS_MS = 6 * 30.44 * 24 * 60 * 60 * 1000;
