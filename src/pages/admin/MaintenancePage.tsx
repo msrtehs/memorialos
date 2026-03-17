@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { CheckCircle, ClipboardList, Package, Plus } from 'lucide-react';
+import { AlertTriangle, CheckCircle, ClipboardList, Package, Plus } from 'lucide-react';
 import { useAdmin } from '@/contexts/AdminContext';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -26,7 +26,8 @@ export default function MaintenancePage() {
     description: '',
     responsible: '',
     priority: 'medium',
-    scheduledFor: new Date().toISOString().slice(0, 10)
+    scheduledFor: new Date().toISOString().slice(0, 10),
+    plotId: ''
   });
 
   const [stockForm, setStockForm] = useState({
@@ -89,14 +90,16 @@ export default function MaintenancePage() {
         status: 'planned',
         priority: taskForm.priority as any,
         scheduledFor: taskForm.scheduledFor,
-        responsible: taskForm.responsible
+        responsible: taskForm.responsible,
+        plotId: taskForm.plotId || undefined
       });
       setTaskForm({
         title: '',
         description: '',
         responsible: '',
         priority: 'medium',
-        scheduledFor: new Date().toISOString().slice(0, 10)
+        scheduledFor: new Date().toISOString().slice(0, 10),
+        plotId: ''
       });
       await loadData();
     } catch (error) {
@@ -162,6 +165,7 @@ export default function MaintenancePage() {
             <input value={taskForm.title} onChange={(e) => setTaskForm((prev) => ({ ...prev, title: e.target.value }))} className="md:col-span-2 border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Nova ordem de servico" required />
             <input value={taskForm.description} onChange={(e) => setTaskForm((prev) => ({ ...prev, description: e.target.value }))} className="md:col-span-2 border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Descricao" />
             <input value={taskForm.responsible} onChange={(e) => setTaskForm((prev) => ({ ...prev, responsible: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Responsavel" />
+            <input value={taskForm.plotId} onChange={(e) => setTaskForm((prev) => ({ ...prev, plotId: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Jazigo (opcional)" />
             <div className="flex gap-2">
               <select value={taskForm.priority} onChange={(e) => setTaskForm((prev) => ({ ...prev, priority: e.target.value }))} className="border border-slate-300 rounded-lg px-2 py-2 text-sm bg-white">
                 <option value="low">Baixa</option>
@@ -183,12 +187,19 @@ export default function MaintenancePage() {
                   {column.label}
                 </h3>
                 <div className="space-y-3">
-                  {scopedMaintenanceRecords.filter((item) => item.status === column.key).map((item) => (
-                    <div key={item.id} className="bg-white border border-slate-200 rounded-lg p-3 shadow-sm">
+                  {scopedMaintenanceRecords.filter((item) => item.status === column.key).map((item) => {
+                    const isOverdue = item.status === 'planned' && item.scheduledFor && item.scheduledFor < new Date().toISOString().slice(0, 10);
+                    return (
+                    <div key={item.id} className={`rounded-lg p-3 shadow-sm border ${isOverdue ? 'bg-rose-50 border-rose-300' : 'bg-white border-slate-200'}`}>
                       <div className="flex justify-between items-start text-xs">
                         <span className="px-2 py-1 rounded-full bg-slate-100 text-slate-600">{item.priority}</span>
                         <span className="text-slate-400">{item.scheduledFor || '-'}</span>
                       </div>
+                      {isOverdue && (
+                        <span className="inline-flex items-center gap-1 mt-1 text-xs bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full">
+                          <AlertTriangle size={11} /> Atrasada
+                        </span>
+                      )}
                       <p className="font-medium text-slate-800 mt-2">{item.title}</p>
                       <p className="text-xs text-slate-500 mt-1">{item.description || 'Sem descricao'}</p>
                       <p className="text-xs text-slate-400 mt-2">Resp.: {item.responsible || 'Nao definido'}</p>
@@ -203,7 +214,7 @@ export default function MaintenancePage() {
                         )}
                       </div>
                     </div>
-                  ))}
+                  ); })}
                   {!loading && scopedMaintenanceRecords.filter((item) => item.status === column.key).length === 0 && (
                     <div className="text-xs text-slate-500 text-center p-3 border border-dashed border-slate-300 rounded-lg">
                       Sem ordens nesta coluna.
