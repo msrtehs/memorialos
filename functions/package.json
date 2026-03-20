@@ -1,0 +1,22 @@
+{
+  "name": "memorialos-functions",
+  "description": "Cloud Functions for MemorialOS",
+  "scripts": {
+    "build": "tsc",
+    "deploy": "npm run build && firebase deploy --only functions",
+    "serve": "npm run build && firebase emulators:start --only functions"
+  },
+  "engines": {
+    "node": "20"
+  },
+  "main": "lib/index.js",
+  "dependencies": {
+    "firebase-admin": "^13.0.0",
+    "firebase-functions": "^6.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.8.2"
+  },
+  "private": true
+}

@@ -6,7 +6,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { auth } from '@/lib/firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { ShieldCheck } from 'lucide-react';
+import { ShieldCheck, ShieldAlert } from 'lucide-react';
 import AppLogo from '@/components/AppLogo';
 
 const loginSchema = z.object({
@@ -18,12 +18,15 @@ type LoginForm = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { user, role } = useAuth(); // Get user and role from auth context
-  
+  const { user, role } = useAuth();
+  const [superAdminError, setSuperAdminError] = React.useState('');
+
   // Redirect if already logged in
   React.useEffect(() => {
     if (user && role) {
-      if (['gestor', 'superadmin', 'operador'].includes(role)) {
+      if (role === 'superadmin') {
+        navigate('/superadmin');
+      } else if (['gestor', 'operador'].includes(role)) {
         navigate('/admin/dashboard');
       } else {
         navigate('/app');
@@ -31,7 +34,7 @@ export default function LoginPage() {
     }
   }, [user, role, navigate]);
 
-  const { register, handleSubmit, formState: { errors, isSubmitting }, setError, setValue } = useForm<LoginForm>({
+  const { register, handleSubmit, formState: { errors, isSubmitting }, setError } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
   });
 
@@ -55,6 +58,23 @@ export default function LoginPage() {
     }
   };
 
+  const handleSuperAdminAccess = async () => {
+    setSuperAdminError('');
+    try {
+      const credential = await signInWithEmailAndPassword(auth, 'superadmin@memorial.com', '12345678');
+      const token = await credential.user.getIdTokenResult();
+      if (token.claims.role !== 'superadmin') {
+        await auth.signOut();
+        setSuperAdminError('Acesso não autorizado. Verifique as custom claims do usuário no Firebase.');
+        return;
+      }
+      // Navigation is handled by useEffect based on role
+    } catch (error: any) {
+      console.error("Erro no acesso SuperAdmin:", error);
+      setSuperAdminError('Credenciais inválidas ou usuário não configurado.');
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-blue-50 px-4">
       <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-blue-100">
@@ -69,9 +89,9 @@ export default function LoginPage() {
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">E-mail</label>
-            <input 
+            <input
               {...register('email')}
-              type="email" 
+              type="email"
               className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
               placeholder="seu@email.com"
             />
@@ -80,9 +100,9 @@ export default function LoginPage() {
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Senha</label>
-            <input 
+            <input
               {...register('password')}
-              type="password" 
+              type="password"
               className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
               placeholder="••••••••"
             />
@@ -91,8 +111,8 @@ export default function LoginPage() {
 
           {errors.root && <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg">{errors.root.message}</div>}
 
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             disabled={isSubmitting}
             className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-blue-200"
           >
@@ -104,14 +124,26 @@ export default function LoginPage() {
           <p>Não tem uma conta? <Link to="/cadastro" className="text-blue-600 font-medium hover:underline">Cadastre-se</Link></p>
         </div>
 
-        <div className="mt-8 pt-6 border-t border-slate-100">
-          <button 
+        <div className="mt-8 pt-6 border-t border-slate-100 space-y-2">
+          <button
             onClick={handleManagerAccess}
             className="w-full flex items-center justify-center gap-2 text-slate-500 hover:text-blue-700 hover:bg-blue-50 py-2 rounded-lg transition-colors text-sm font-medium"
           >
             <ShieldCheck size={16} />
             Acesso para Gestores
           </button>
+
+          <button
+            onClick={handleSuperAdminAccess}
+            className="w-full flex items-center justify-center gap-2 text-slate-400 hover:text-slate-700 hover:bg-slate-50 py-2 rounded-lg transition-colors text-sm font-medium"
+          >
+            <ShieldAlert size={16} />
+            Entrar como SuperAdmin
+          </button>
+
+          {superAdminError && (
+            <p className="text-red-500 text-xs text-center px-2">{superAdminError}</p>
+          )}
         </div>
       </div>
     </div>
