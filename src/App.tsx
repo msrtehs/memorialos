@@ -30,6 +30,7 @@ import AgentsPage from '@/pages/admin/AgentsPage';
 import DocumentsCenterPage from '@/pages/admin/DocumentsCenterPage';
 import SupportPage from '@/pages/admin/SupportPage';
 
+import SuperAdminPage from '@/pages/superadmin/SuperAdminPage';
 import GardenOfMemories from '@/pages/user/GardenOfMemories';
 import UserHomePage from '@/pages/user/UserHomePage';
 import ReportDeath from '@/pages/user/ReportDeath';
@@ -117,6 +118,10 @@ const AppContent = () => {
             <Route path="solicitacoes" element={<Placeholder title="Central de Solicitacoes" />} />
             <Route path="configuracoes" element={<Placeholder title="Configuracoes" />} />
           </Route>
+        </Route>
+
+        <Route element={<ProtectedRoute allowedRoles={['superadmin']} />}>
+          <Route path="/superadmin" element={<SuperAdminPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

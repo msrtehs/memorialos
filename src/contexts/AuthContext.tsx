@@ -47,9 +47,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           const tokenResult = await getIdTokenResult(currentUser);
           let userRole = (tokenResult.claims.role as string) || 'citizen';
           
-          // DEMO OVERRIDE: Allow specific email to be superadmin
+          // DEMO OVERRIDE: Allow specific email to access manager area
           if (currentUser.email === 'admin@memorial.com' || currentUser.email === 'gestor@memorial.com') {
-            userRole = 'superadmin';
+            userRole = 'gestor';
           }
           
           setRole(userRole);
