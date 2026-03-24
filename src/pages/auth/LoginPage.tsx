@@ -26,7 +26,7 @@ export default function LoginPage() {
     if (user && role) {
       if (role === 'superadmin') {
         navigate('/superadmin');
-      } else if (['gestor', 'operador'].includes(role)) {
+      } else if (['gestor', 'manager', 'operador'].includes(role)) {
         navigate('/admin/dashboard');
       } else {
         navigate('/app');

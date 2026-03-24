@@ -10,8 +10,9 @@ function generateTenantId(name: string): string {
 }
 
 // ─── createManagerAccount ─────────────────────────────────────────────────────
-// Creates a Firebase Auth user for the manager, sets custom claims,
-// writes tenant and profile documents in Firestore.
+// Creates the FIRST manager user for a brand-new tenant (prefecture).
+// Generates tenantId, creates Auth user, sets custom claims, writes
+// tenant + profile documents.
 export const createManagerAccount = onCall(async (request) => {
   if (!request.auth || request.auth.token['role'] !== 'superadmin') {
     throw new HttpsError('permission-denied', 'Acesso negado');
@@ -54,15 +55,60 @@ export const createManagerAccount = onCall(async (request) => {
     email: managerEmail,
     role: 'manager',
     tenantId,
+    active: true,
     createdAt: FieldValue.serverTimestamp(),
   });
 
   return { success: true };
 });
 
+// ─── addUserToTenant ──────────────────────────────────────────────────────────
+// Adds an additional manager login to an EXISTING tenant (prefecture).
+// Does NOT create a new tenant document — only creates Auth user + profile.
+export const addUserToTenant = onCall(async (request) => {
+  if (!request.auth || request.auth.token['role'] !== 'superadmin') {
+    throw new HttpsError('permission-denied', 'Acesso negado');
+  }
+
+  const { tenantId, email, password } = request.data as {
+    tenantId: string;
+    email: string;
+    password: string;
+  };
+
+  if (!tenantId || !email || !password) {
+    throw new HttpsError('invalid-argument', 'Dados inválidos');
+  }
+
+  const auth = getAuth();
+  const db = getFirestore();
+
+  const tenantDoc = await db.collection('tenants').doc(tenantId).get();
+  if (!tenantDoc.exists) {
+    throw new HttpsError('not-found', 'Prefeitura não encontrada');
+  }
+
+  const user = await auth.createUser({ email, password });
+
+  await auth.setCustomUserClaims(user.uid, {
+    role: 'manager',
+    tenantId,
+  });
+
+  await db.collection('profiles').doc(user.uid).set({
+    email,
+    role: 'manager',
+    tenantId,
+    active: true,
+    createdAt: FieldValue.serverTimestamp(),
+  });
+
+  return { success: true, uid: user.uid };
+});
+
 // ─── toggleManagerStatus ──────────────────────────────────────────────────────
-// Disables or re-enables a manager's Firebase Auth account and
-// updates the tenant's active flag accordingly.
+// Disables or re-enables the PRIMARY manager's Auth account and updates
+// the tenant's active flag. Used for whole-tenant activation / deactivation.
 export const toggleManagerStatus = onCall(async (request) => {
   if (!request.auth || request.auth.token['role'] !== 'superadmin') {
     throw new HttpsError('permission-denied', 'Acesso negado');
@@ -93,9 +139,32 @@ export const toggleManagerStatus = onCall(async (request) => {
   return { success: true };
 });
 
+// ─── disableTenantUser ────────────────────────────────────────────────────────
+// Toggles a single user's Auth disabled flag and mirrors the active field
+// in their profile. Does NOT affect the tenant document.
+export const disableTenantUser = onCall(async (request) => {
+  if (!request.auth || request.auth.token['role'] !== 'superadmin') {
+    throw new HttpsError('permission-denied', 'Acesso negado');
+  }
+
+  const { uid, disabled } = request.data as { uid: string; disabled: boolean };
+
+  if (!uid || typeof disabled !== 'boolean') {
+    throw new HttpsError('invalid-argument', 'Dados inválidos');
+  }
+
+  const auth = getAuth();
+  const db = getFirestore();
+
+  await auth.updateUser(uid, { disabled });
+  await db.collection('profiles').doc(uid).update({ active: !disabled });
+
+  return { success: true };
+});
+
 // ─── deleteManagerAccount ─────────────────────────────────────────────────────
-// Removes the manager from Firebase Auth and deletes the associated
-// profile and tenant documents from Firestore.
+// Removes the PRIMARY manager from Firebase Auth and deletes the associated
+// profile AND tenant documents. Use to delete an entire prefecture.
 export const deleteManagerAccount = onCall(async (request) => {
   if (!request.auth || request.auth.token['role'] !== 'superadmin') {
     throw new HttpsError('permission-denied', 'Acesso negado');
@@ -113,9 +182,47 @@ export const deleteManagerAccount = onCall(async (request) => {
   const auth = getAuth();
   const db = getFirestore();
 
-  await auth.deleteUser(managerUid);
-  await db.collection('profiles').doc(managerUid).delete();
+  // Delete all profiles that belong to this tenant
+  const profilesSnap = await db
+    .collection('profiles')
+    .where('tenantId', '==', tenantId)
+    .get();
+
+  const deleteProfiles = profilesSnap.docs.map(async (doc) => {
+    try {
+      await auth.deleteUser(doc.id);
+    } catch (_) {
+      // User may already be deleted; continue
+    }
+    await doc.ref.delete();
+  });
+
+  await Promise.all(deleteProfiles);
+
   await db.collection('tenants').doc(tenantId).delete();
+
+  return { success: true };
+});
+
+// ─── deleteTenantUser ─────────────────────────────────────────────────────────
+// Removes a SINGLE user from a tenant. Deletes only Auth user + profile.
+// The tenant document and other users are NOT affected.
+export const deleteTenantUser = onCall(async (request) => {
+  if (!request.auth || request.auth.token['role'] !== 'superadmin') {
+    throw new HttpsError('permission-denied', 'Acesso negado');
+  }
+
+  const { uid } = request.data as { uid: string };
+
+  if (!uid) {
+    throw new HttpsError('invalid-argument', 'Dados inválidos');
+  }
+
+  const auth = getAuth();
+  const db = getFirestore();
+
+  await auth.deleteUser(uid);
+  await db.collection('profiles').doc(uid).delete();
 
   return { success: true };
 });
