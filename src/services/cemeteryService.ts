@@ -23,6 +23,9 @@ export interface Cemetery {
   capacity?: number;
   latitude?: number;
   longitude?: number;
+  type?: 'publico' | 'particular' | 'concessao';
+  adminUid?: string;
+  coordinates?: { lat: number; lng: number };
   createdBy?: string;
   createdAt?: any;
 }
@@ -236,6 +239,24 @@ export async function createSector(tenantId: string, cemeteryId: string, data: C
   return docRef.id;
 }
 
+export async function updateSector(tenantId: string, sectorId: string, data: Partial<Sector>) {
+  const sectorRef = doc(db, SECTORS_COL, sectorId);
+  const oldSnap = await getDoc(sectorRef);
+  const oldData = oldSnap.data();
+
+  await updateDoc(sectorRef, {
+    ...data,
+    updatedAt: serverTimestamp(),
+    updatedBy: auth.currentUser?.uid
+  });
+  await logAction(tenantId, 'UPDATE_SECTOR', SECTORS_COL, sectorId, oldData, data);
+}
+
+export async function deleteSector(tenantId: string, sectorId: string) {
+  await deleteDoc(doc(db, SECTORS_COL, sectorId));
+  await logAction(tenantId, 'DELETE_SECTOR', SECTORS_COL, sectorId, null, null);
+}
+
 // --- Plots ---
 
 export async function getPlots(sectorId: string) {
@@ -285,6 +306,19 @@ export async function updatePlot(plotId: string, tenantId: string, data: Partial
     updatedBy: auth.currentUser?.uid
   });
   await logAction(tenantId, 'UPDATE_PLOT', PLOTS_COL, plotId, oldData, data);
+}
+
+export async function deletePlot(tenantId: string, plotId: string) {
+  await deleteDoc(doc(db, PLOTS_COL, plotId));
+  await logAction(tenantId, 'DELETE_PLOT', PLOTS_COL, plotId, null, null);
+}
+
+// --- Profiles (for admin selector) ---
+
+export async function getTenantProfiles(tenantId: string) {
+  const q = query(collection(db, 'profiles'), where('tenantId', '==', tenantId));
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as Array<{ id: string; email: string; role: string; tenantId: string; [key: string]: any }>;
 }
 
 // --- Concessions ---

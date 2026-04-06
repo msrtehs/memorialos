@@ -5,13 +5,13 @@ import { z } from 'zod';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { auth } from '@/lib/firebase';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { ShieldCheck, ShieldAlert } from 'lucide-react';
+import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
+import { Building2, CheckCircle } from 'lucide-react';
 import AppLogo from '@/components/AppLogo';
 
 const loginSchema = z.object({
-  email: z.string().email('E-mail inválido'),
-  password: z.string().min(6, 'A senha deve ter no mínimo 6 caracteres'),
+  email: z.string().email('E-mail invalido'),
+  password: z.string().min(6, 'A senha deve ter no minimo 6 caracteres'),
 });
 
 type LoginForm = z.infer<typeof loginSchema>;
@@ -19,9 +19,31 @@ type LoginForm = z.infer<typeof loginSchema>;
 export default function LoginPage() {
   const navigate = useNavigate();
   const { user, role } = useAuth();
-  const [superAdminError, setSuperAdminError] = React.useState('');
+  const [showInstitutional, setShowInstitutional] = React.useState(false);
+  const [showResetPassword, setShowResetPassword] = React.useState(false);
+  const [resetEmail, setResetEmail] = React.useState('');
+  const [resetStatus, setResetStatus] = React.useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  const [resetError, setResetError] = React.useState('');
 
-  // Redirect if already logged in
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetEmail.trim()) return;
+    setResetStatus('sending');
+    setResetError('');
+    try {
+      await sendPasswordResetEmail(auth, resetEmail.trim());
+      setResetStatus('sent');
+    } catch (error: any) {
+      setResetStatus('error');
+      const code = error?.code || '';
+      if (code === 'auth/user-not-found' || code === 'auth/invalid-email') {
+        setResetError('E-mail nao encontrado.');
+      } else {
+        setResetError('Erro ao enviar. Tente novamente.');
+      }
+    }
+  };
+
   React.useEffect(() => {
     if (user && role) {
       if (role === 'superadmin') {
@@ -41,42 +63,23 @@ export default function LoginPage() {
   const onSubmit = async (data: LoginForm) => {
     try {
       await signInWithEmailAndPassword(auth, data.email, data.password);
-      // Navigation is handled by useEffect based on role
-    } catch (error) {
-      console.error(error);
-      setError('root', { message: 'Credenciais inválidas ou erro no servidor.' });
-    }
-  };
-
-  const handleManagerAccess = async () => {
-    try {
-      // Silent login for demo purposes
-      await signInWithEmailAndPassword(auth, 'admin@memorial.com', 'admin123');
-      // Navigation is handled by useEffect based on role
-    } catch (error) {
-      console.error("Erro no acesso de gestor:", error);
-    }
-  };
-
-  const handleSuperAdminAccess = async () => {
-    setSuperAdminError('');
-    try {
-      const credential = await signInWithEmailAndPassword(auth, 'superadmin@memorial.com', '12345678');
-      const token = await credential.user.getIdTokenResult();
-      if (token.claims.role !== 'superadmin') {
-        await auth.signOut();
-        setSuperAdminError('Acesso não autorizado. Verifique as custom claims do usuário no Firebase.');
-        return;
-      }
-      // Navigation is handled by useEffect based on role
     } catch (error: any) {
-      console.error("Erro no acesso SuperAdmin:", error);
-      setSuperAdminError('Credenciais inválidas ou usuário não configurado.');
+      console.error(error);
+      const code = error?.code || '';
+      if (code === 'auth/user-not-found' || code === 'auth/invalid-credential') {
+        setError('root', { message: 'E-mail ou senha incorretos.' });
+      } else if (code === 'auth/too-many-requests') {
+        setError('root', { message: 'Muitas tentativas. Aguarde alguns minutos.' });
+      } else if (code === 'auth/network-request-failed') {
+        setError('root', { message: 'Erro de conexao. Verifique sua internet.' });
+      } else {
+        setError('root', { message: 'Credenciais invalidas ou erro no servidor.' });
+      }
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-blue-50 px-4">
+    <div className="flex items-center justify-center bg-blue-50 px-4 py-12" style={{ minHeight: 'calc(100vh - 4rem)' }}>
       <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-blue-100">
         <div className="text-center mb-8">
           <div className="mx-auto mb-4 w-fit">
@@ -107,9 +110,55 @@ export default function LoginPage() {
               placeholder="••••••••"
             />
             {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
+            <div className="text-right mt-1">
+              <button
+                type="button"
+                onClick={() => { setShowResetPassword(!showResetPassword); setResetStatus('idle'); setResetError(''); }}
+                className="text-xs text-blue-600 hover:underline"
+              >
+                Esqueci minha senha
+              </button>
+            </div>
           </div>
 
-          {errors.root && <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg">{errors.root.message}</div>}
+          {showResetPassword && (
+            <div className="p-4 bg-blue-50 border border-blue-100 rounded-lg">
+              {resetStatus === 'sent' ? (
+                <div className="flex items-center gap-2 text-sm text-emerald-700">
+                  <CheckCircle size={16} />
+                  <span>E-mail de recuperacao enviado para <strong>{resetEmail}</strong>. Verifique sua caixa de entrada.</span>
+                </div>
+              ) : (
+                <form onSubmit={handleResetPassword} className="space-y-2">
+                  <p className="text-xs text-slate-600">Digite seu e-mail para receber o link de recuperacao:</p>
+                  <div className="flex gap-2">
+                    <input
+                      type="email"
+                      value={resetEmail}
+                      onChange={(e) => setResetEmail(e.target.value)}
+                      placeholder="seu@email.com"
+                      className="flex-1 px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                      required
+                    />
+                    <button
+                      type="submit"
+                      disabled={resetStatus === 'sending'}
+                      className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      {resetStatus === 'sending' ? 'Enviando...' : 'Enviar'}
+                    </button>
+                  </div>
+                  {resetError && <p className="text-red-500 text-xs">{resetError}</p>}
+                </form>
+              )}
+            </div>
+          )}
+
+          {errors.root && (
+            <div className="p-3 bg-red-50 border border-red-100 text-red-600 text-sm rounded-lg">
+              {errors.root.message}
+            </div>
+          )}
 
           <button
             type="submit"
@@ -121,28 +170,23 @@ export default function LoginPage() {
         </form>
 
         <div className="mt-6 text-center text-sm text-slate-500">
-          <p>Não tem uma conta? <Link to="/cadastro" className="text-blue-600 font-medium hover:underline">Cadastre-se</Link></p>
+          <p>Nao tem uma conta? <Link to="/cadastro" className="text-blue-600 font-medium hover:underline">Cadastre-se</Link></p>
         </div>
 
-        <div className="mt-8 pt-6 border-t border-slate-100 space-y-2">
+        {/* Acesso institucional discreto */}
+        <div className="mt-6 pt-4 border-t border-slate-100">
           <button
-            onClick={handleManagerAccess}
-            className="w-full flex items-center justify-center gap-2 text-slate-500 hover:text-blue-700 hover:bg-blue-50 py-2 rounded-lg transition-colors text-sm font-medium"
+            onClick={() => setShowInstitutional(!showInstitutional)}
+            className="w-full flex items-center justify-center gap-1.5 text-xs text-slate-400 hover:text-slate-500 transition-colors"
           >
-            <ShieldCheck size={16} />
-            Acesso para Gestores
+            <Building2 size={12} />
+            Acesso institucional
           </button>
 
-          <button
-            onClick={handleSuperAdminAccess}
-            className="w-full flex items-center justify-center gap-2 text-slate-400 hover:text-slate-700 hover:bg-slate-50 py-2 rounded-lg transition-colors text-sm font-medium"
-          >
-            <ShieldAlert size={16} />
-            Entrar como SuperAdmin
-          </button>
-
-          {superAdminError && (
-            <p className="text-red-500 text-xs text-center px-2">{superAdminError}</p>
+          {showInstitutional && (
+            <p className="mt-3 text-xs text-slate-400 text-center leading-relaxed">
+              Gestores e administradores devem utilizar o formulario acima com as credenciais fornecidas pela administracao do sistema. O redirecionamento e automatico conforme o perfil.
+            </p>
           )}
         </div>
       </div>
