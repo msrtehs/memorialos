@@ -59,7 +59,7 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-blue-50 px-4">
+    <div className="flex items-center justify-center bg-blue-50 px-4 py-12" style={{ minHeight: 'calc(100vh - 4rem)' }}>
       <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-blue-100">
         <div className="text-center mb-8">
           <div className="mx-auto mb-4 w-fit">

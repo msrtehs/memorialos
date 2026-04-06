@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, HashRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 
@@ -31,6 +31,8 @@ import DocumentsCenterPage from '@/pages/admin/DocumentsCenterPage';
 import SupportPage from '@/pages/admin/SupportPage';
 
 import SuperAdminPage from '@/pages/superadmin/SuperAdminPage';
+import LandingPage from '@/pages/public/LandingPage';
+import SearchPage from '@/pages/public/SearchPage';
 import GardenOfMemories from '@/pages/user/GardenOfMemories';
 import UserHomePage from '@/pages/user/UserHomePage';
 import ReportDeath from '@/pages/user/ReportDeath';
@@ -48,7 +50,6 @@ const Placeholder = ({ title }: { title: string }) => (
 const AppContent = () => {
   const { error } = useAuth();
   const normalizedBase = (import.meta.env.BASE_URL || '/').replace(/\/+$/, '') || '/';
-  const Router = import.meta.env.PROD ? HashRouter : BrowserRouter;
 
   if (error) {
     return (
@@ -69,13 +70,13 @@ const AppContent = () => {
   }
 
   return (
-    <Router basename={import.meta.env.PROD ? undefined : normalizedBase}>
+    <BrowserRouter basename={normalizedBase}>
       <Routes>
         <Route element={<PublicLayout />}>
-          <Route path="/" element={<LoginPage />} />
-          <Route path="/login" element={<Navigate to="/" replace />} />
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/login" element={<LoginPage />} />
           <Route path="/cadastro" element={<RegisterPage />} />
-          <Route path="/buscar" element={<Placeholder title="Busca de Falecidos" />} />
+          <Route path="/buscar" element={<SearchPage />} />
           <Route path="/memorial/:id" element={<Placeholder title="Memorial" />} />
           <Route path="/servicos" element={<Placeholder title="Servicos Publicos" />} />
           <Route path="/minha-conta" element={<Navigate to="/app/inicio" replace />} />
@@ -93,7 +94,7 @@ const AppContent = () => {
           </Route>
         </Route>
 
-        <Route element={<ProtectedRoute allowedRoles={['gestor', 'superadmin', 'operador']} />}>
+        <Route element={<ProtectedRoute allowedRoles={['gestor', 'manager', 'superadmin', 'operador']} />}>
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<Navigate to="/admin/dashboard" replace />} />
             <Route path="dashboard" element={<AdminDashboard />} />
@@ -126,7 +127,7 @@ const AppContent = () => {
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </Router>
+    </BrowserRouter>
   );
 };
 
