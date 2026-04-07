@@ -1,12 +1,19 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.chatWithManagerAgent = exports.chatWithAI = exports.generateObituary = exports.deleteTenantUser = exports.deleteManagerAccount = exports.disableTenantUser = exports.toggleManagerStatus = exports.addUserToTenant = exports.createManagerAccount = void 0;
+exports.getMonitoringData = exports.manualMonitorTrigger = exports.dailyReport = exports.monitorMemorials = exports.monitorOperational = exports.monitorTechnical = exports.chatWithManagerAgent = exports.chatWithAI = exports.generateObituary = exports.deleteTenantUser = exports.deleteManagerAccount = exports.disableTenantUser = exports.toggleManagerStatus = exports.addUserToTenant = exports.createManagerAccount = void 0;
 const https_1 = require("firebase-functions/v2/https");
+const scheduler_1 = require("firebase-functions/v2/scheduler");
 const params_1 = require("firebase-functions/params");
 const app_1 = require("firebase-admin/app");
 const auth_1 = require("firebase-admin/auth");
 const firestore_1 = require("firebase-admin/firestore");
 const genai_1 = require("@google/genai");
+// Monitoring imports
+const technicalMonitor_1 = require("./monitoring/technicalMonitor");
+const operationalMonitor_1 = require("./monitoring/operationalMonitor");
+const memorialMonitor_1 = require("./monitoring/memorialMonitor");
+const alertService_1 = require("./monitoring/alertService");
+const dashboardService_1 = require("./monitoring/dashboardService");
 (0, app_1.initializeApp)();
 const geminiApiKey = (0, params_1.defineSecret)('GEMINI_API_KEY');
 function generateTenantId(name) {
@@ -260,5 +267,198 @@ exports.chatWithManagerAgent = (0, https_1.onCall)({ secrets: [geminiApiKey] }, 
     });
     const result = await chat.sendMessage({ message });
     return { text: result.text || '' };
+});
+// ─── Monitoring Agent ───────────────────────────────────────────────────────
+function getMonitorConfig() {
+    var _a, _b, _c, _d;
+    return {
+        whatsapp: {
+            enabled: process.env.WHATSAPP_ENABLED === 'true',
+            evolutionApiUrl: (_a = process.env.EVOLUTION_API_URL) !== null && _a !== void 0 ? _a : '',
+            evolutionApiKey: (_b = process.env.EVOLUTION_API_KEY) !== null && _b !== void 0 ? _b : '',
+            instanceName: (_c = process.env.EVOLUTION_INSTANCE) !== null && _c !== void 0 ? _c : 'memorialos',
+            recipients: JSON.parse((_d = process.env.WHATSAPP_RECIPIENTS) !== null && _d !== void 0 ? _d : '[]'),
+        },
+        thresholds: {
+            responseTimeMs: 3000,
+            failedLoginsMax: 20,
+            servicosAtrasadosMax: 5,
+            memoriaisSemAtualizacaoDias: 30,
+            jazigosSemManutencaoDias: 90,
+            planoVencendoDias: 30,
+        },
+    };
+}
+async function logFunctionError(functionName, error) {
+    try {
+        await (0, firestore_1.getFirestore)().collection('monitor_function_errors').add({
+            function: functionName,
+            error: String(error),
+            timestamp: firestore_1.FieldValue.serverTimestamp(),
+        });
+    }
+    catch (_a) {
+        console.error('[Monitor] Nao foi possivel registrar erro no Firestore');
+    }
+}
+// 1. MONITORAMENTO TECNICO — a cada 5 minutos
+exports.monitorTechnical = (0, scheduler_1.onSchedule)({
+    schedule: 'every 5 minutes',
+    timeZone: 'America/Sao_Paulo',
+    region: 'us-central1',
+    memory: '256MiB',
+    timeoutSeconds: 60,
+}, async () => {
+    const config = getMonitorConfig();
+    try {
+        console.log('[monitorTechnical] Executando...');
+        const snapshot = await (0, technicalMonitor_1.runTechnicalMonitor)(config);
+        await (0, firestore_1.getFirestore)()
+            .collection('monitor_metrics')
+            .doc('current')
+            .set({ technical: snapshot, updatedAt: new Date().toISOString() }, { merge: true });
+        const criticalAlerts = snapshot.alerts.filter(a => a.severity === 'critical');
+        if (criticalAlerts.length > 0) {
+            await (0, alertService_1.dispatchAlerts)(criticalAlerts, config);
+        }
+        console.log(`[monitorTechnical] Concluido. Status: ${snapshot.appStatus}`);
+    }
+    catch (err) {
+        console.error('[monitorTechnical] Erro:', err);
+        await logFunctionError('monitorTechnical', err);
+    }
+});
+// 2. MONITORAMENTO OPERACIONAL — a cada 30 minutos
+exports.monitorOperational = (0, scheduler_1.onSchedule)({
+    schedule: 'every 30 minutes',
+    timeZone: 'America/Sao_Paulo',
+    region: 'us-central1',
+    memory: '256MiB',
+    timeoutSeconds: 120,
+}, async () => {
+    const config = getMonitorConfig();
+    try {
+        console.log('[monitorOperational] Executando...');
+        const snapshot = await (0, operationalMonitor_1.runOperationalMonitor)(config);
+        await (0, firestore_1.getFirestore)()
+            .collection('monitor_metrics')
+            .doc('current')
+            .set({ operational: snapshot, updatedAt: new Date().toISOString() }, { merge: true });
+        if (snapshot.alerts.length > 0) {
+            await (0, alertService_1.dispatchAlerts)(snapshot.alerts, config);
+        }
+        console.log(`[monitorOperational] Concluido. Alertas: ${snapshot.alerts.length}`);
+    }
+    catch (err) {
+        console.error('[monitorOperational] Erro:', err);
+        await logFunctionError('monitorOperational', err);
+    }
+});
+// 3. MONITORAMENTO DE MEMORIAIS — diariamente as 07:00 BRT
+exports.monitorMemorials = (0, scheduler_1.onSchedule)({
+    schedule: '0 7 * * *',
+    timeZone: 'America/Sao_Paulo',
+    region: 'us-central1',
+    memory: '512MiB',
+    timeoutSeconds: 300,
+}, async () => {
+    const config = getMonitorConfig();
+    try {
+        console.log('[monitorMemorials] Executando verificacao diaria...');
+        const snapshot = await (0, memorialMonitor_1.runMemorialMonitor)(config);
+        await (0, firestore_1.getFirestore)()
+            .collection('monitor_metrics')
+            .doc('current')
+            .set({ memorial: snapshot, updatedAt: new Date().toISOString() }, { merge: true });
+        if (snapshot.alerts.length > 0) {
+            await (0, alertService_1.dispatchAlerts)(snapshot.alerts, config);
+        }
+        console.log(`[monitorMemorials] Concluido. Total memoriais: ${snapshot.totalMemoriais}`);
+    }
+    catch (err) {
+        console.error('[monitorMemorials] Erro:', err);
+        await logFunctionError('monitorMemorials', err);
+    }
+});
+// 4. RELATORIO DIARIO COMPLETO — diariamente as 07:30 BRT
+exports.dailyReport = (0, scheduler_1.onSchedule)({
+    schedule: '30 7 * * *',
+    timeZone: 'America/Sao_Paulo',
+    region: 'us-central1',
+    memory: '256MiB',
+    timeoutSeconds: 120,
+}, async () => {
+    const config = getMonitorConfig();
+    try {
+        console.log('[dailyReport] Gerando relatorio diario...');
+        const metrics = await (0, dashboardService_1.getCurrentMetrics)();
+        if (!metrics) {
+            console.warn('[dailyReport] Nenhuma metrica atual disponivel. Pulando relatorio.');
+            return;
+        }
+        await (0, dashboardService_1.saveHistoricalPoint)(metrics);
+        await (0, alertService_1.sendDailyReport)(metrics, config);
+        console.log(`[dailyReport] Relatorio enviado. Health Score: ${metrics.systemHealthScore}/100`);
+    }
+    catch (err) {
+        console.error('[dailyReport] Erro:', err);
+        await logFunctionError('dailyReport', err);
+    }
+});
+// 5. TRIGGER MANUAL (HTTP) — para testes e forcar execucao
+exports.manualMonitorTrigger = (0, https_1.onRequest)({
+    region: 'us-central1',
+    memory: '512MiB',
+    timeoutSeconds: 300,
+}, async (req, res) => {
+    var _a, _b, _c;
+    const authHeader = (_a = req.headers.authorization) !== null && _a !== void 0 ? _a : '';
+    const token = (_b = process.env.MONITOR_TRIGGER_TOKEN) !== null && _b !== void 0 ? _b : '';
+    if (token && authHeader !== `Bearer ${token}`) {
+        res.status(401).json({ error: 'Nao autorizado' });
+        return;
+    }
+    const config = getMonitorConfig();
+    const module = (_c = req.query.module) !== null && _c !== void 0 ? _c : 'all';
+    try {
+        console.log(`[manualTrigger] Executando modulo: ${module}`);
+        const results = {};
+        if (module === 'technical' || module === 'all') {
+            results.technical = await (0, technicalMonitor_1.runTechnicalMonitor)(config);
+        }
+        if (module === 'operational' || module === 'all') {
+            results.operational = await (0, operationalMonitor_1.runOperationalMonitor)(config);
+        }
+        if (module === 'memorial' || module === 'all') {
+            results.memorial = await (0, memorialMonitor_1.runMemorialMonitor)(config);
+        }
+        if (module === 'all' && results.technical && results.operational && results.memorial) {
+            const metrics = await (0, dashboardService_1.saveCurrentMetrics)(results.technical, results.operational, results.memorial);
+            results.systemHealthScore = metrics.systemHealthScore;
+            results.alertsTotal = metrics.alertsOpen.length;
+            await (0, alertService_1.dispatchAlerts)(metrics.alertsOpen, config);
+        }
+        res.status(200).json({ success: true, module, results });
+    }
+    catch (err) {
+        console.error('[manualTrigger] Erro:', err);
+        res.status(500).json({ error: String(err) });
+    }
+});
+// 6. CALLABLE — expoe metricas para o dashboard React
+exports.getMonitoringData = (0, https_1.onCall)({ region: 'us-central1' }, async (request) => {
+    if (!request.auth) {
+        throw new https_1.HttpsError('unauthenticated', 'Usuario nao autenticado');
+    }
+    const role = request.auth.token['role'];
+    if (role !== 'superadmin') {
+        throw new https_1.HttpsError('permission-denied', 'Apenas SuperAdmins podem ver o dashboard de monitoramento');
+    }
+    const { days = 7 } = request.data;
+    const [current, history] = await Promise.all([
+        (0, dashboardService_1.getCurrentMetrics)(),
+        (0, dashboardService_1.getHistory)(days),
+    ]);
+    return { current, history };
 });
 //# sourceMappingURL=index.js.map

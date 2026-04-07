@@ -256,5 +256,33 @@ service cloud.firestore {
       allow create: if isSignedIn() && isStaff(request.resource.data.tenantId);
       allow update, delete: if isSignedIn() && isStaff(resource.data.tenantId);
     }
+
+    // ─── Monitoring Agent Collections ─────────────────────────────────────────
+    // Leitura: apenas SuperAdmins
+    // Escrita: apenas Cloud Functions (Admin SDK) — bloqueada para clientes
+
+    match /monitor_metrics/{doc} {
+      allow read: if isSuperAdmin();
+      allow write: if false;
+    }
+
+    match /monitor_history/{doc} {
+      allow read: if isSuperAdmin();
+      allow write: if false;
+    }
+
+    match /monitor_alerts/{doc} {
+      allow read: if isSuperAdmin();
+      allow write: if false;
+    }
+
+    match /monitor_function_errors/{doc} {
+      allow read: if isSuperAdmin();
+      allow write: if false;
+    }
+
+    match /_monitor/{doc} {
+      allow read, write: if false;
+    }
   }
 }

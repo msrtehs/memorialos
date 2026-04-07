@@ -19,6 +19,7 @@ import {
   deleteTenantUser,
 } from '@/services/superadminService';
 import {
+  Activity,
   Building2,
   Plus,
   LogOut,
@@ -276,6 +277,13 @@ export default function SuperAdminPage() {
           </div>
           <div className="flex items-center gap-4">
             <span className="text-sm text-slate-500 hidden sm:block">{user?.email}</span>
+            <button
+              onClick={() => navigate('/superadmin/monitoring')}
+              className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors font-medium"
+            >
+              <Activity size={15} />
+              Monitoramento
+            </button>
             <button
               onClick={handleLogout}
               className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-red-600 transition-colors"

@@ -1,9 +1,23 @@
-import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { onCall, HttpsError, onRequest } from 'firebase-functions/v2/https';
+import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { defineSecret } from 'firebase-functions/params';
 import { initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { GoogleGenAI } from '@google/genai';
+
+// Monitoring imports
+import { runTechnicalMonitor } from './monitoring/technicalMonitor';
+import { runOperationalMonitor } from './monitoring/operationalMonitor';
+import { runMemorialMonitor } from './monitoring/memorialMonitor';
+import { dispatchAlerts, sendDailyReport } from './monitoring/alertService';
+import {
+  saveCurrentMetrics,
+  saveHistoricalPoint,
+  getCurrentMetrics,
+  getHistory,
+} from './monitoring/dashboardService';
+import type { MonitorConfig } from './monitoring/types';
 
 initializeApp();
 
@@ -342,3 +356,241 @@ export const chatWithManagerAgent = onCall({ secrets: [geminiApiKey] }, async (r
   const result = await chat.sendMessage({ message });
   return { text: result.text || '' };
 });
+
+// ─── Monitoring Agent ───────────────────────────────────────────────────────
+
+function getMonitorConfig(): MonitorConfig {
+  return {
+    whatsapp: {
+      enabled: process.env.WHATSAPP_ENABLED === 'true',
+      evolutionApiUrl: process.env.EVOLUTION_API_URL ?? '',
+      evolutionApiKey: process.env.EVOLUTION_API_KEY ?? '',
+      instanceName: process.env.EVOLUTION_INSTANCE ?? 'memorialos',
+      recipients: JSON.parse(process.env.WHATSAPP_RECIPIENTS ?? '[]'),
+    },
+    thresholds: {
+      responseTimeMs: 3000,
+      failedLoginsMax: 20,
+      servicosAtrasadosMax: 5,
+      memoriaisSemAtualizacaoDias: 30,
+      jazigosSemManutencaoDias: 90,
+      planoVencendoDias: 30,
+    },
+  };
+}
+
+async function logFunctionError(functionName: string, error: unknown): Promise<void> {
+  try {
+    await getFirestore().collection('monitor_function_errors').add({
+      function: functionName,
+      error: String(error),
+      timestamp: FieldValue.serverTimestamp(),
+    });
+  } catch {
+    console.error('[Monitor] Nao foi possivel registrar erro no Firestore');
+  }
+}
+
+// 1. MONITORAMENTO TECNICO — a cada 5 minutos
+export const monitorTechnical = onSchedule(
+  {
+    schedule: 'every 5 minutes',
+    timeZone: 'America/Sao_Paulo',
+    region: 'us-central1',
+    memory: '256MiB',
+    timeoutSeconds: 60,
+  },
+  async () => {
+    const config = getMonitorConfig();
+    try {
+      console.log('[monitorTechnical] Executando...');
+      const snapshot = await runTechnicalMonitor(config);
+
+      await getFirestore()
+        .collection('monitor_metrics')
+        .doc('current')
+        .set({ technical: snapshot, updatedAt: new Date().toISOString() }, { merge: true });
+
+      const criticalAlerts = snapshot.alerts.filter(a => a.severity === 'critical');
+      if (criticalAlerts.length > 0) {
+        await dispatchAlerts(criticalAlerts, config);
+      }
+
+      console.log(`[monitorTechnical] Concluido. Status: ${snapshot.appStatus}`);
+    } catch (err) {
+      console.error('[monitorTechnical] Erro:', err);
+      await logFunctionError('monitorTechnical', err);
+    }
+  }
+);
+
+// 2. MONITORAMENTO OPERACIONAL — a cada 30 minutos
+export const monitorOperational = onSchedule(
+  {
+    schedule: 'every 30 minutes',
+    timeZone: 'America/Sao_Paulo',
+    region: 'us-central1',
+    memory: '256MiB',
+    timeoutSeconds: 120,
+  },
+  async () => {
+    const config = getMonitorConfig();
+    try {
+      console.log('[monitorOperational] Executando...');
+      const snapshot = await runOperationalMonitor(config);
+
+      await getFirestore()
+        .collection('monitor_metrics')
+        .doc('current')
+        .set({ operational: snapshot, updatedAt: new Date().toISOString() }, { merge: true });
+
+      if (snapshot.alerts.length > 0) {
+        await dispatchAlerts(snapshot.alerts, config);
+      }
+
+      console.log(`[monitorOperational] Concluido. Alertas: ${snapshot.alerts.length}`);
+    } catch (err) {
+      console.error('[monitorOperational] Erro:', err);
+      await logFunctionError('monitorOperational', err);
+    }
+  }
+);
+
+// 3. MONITORAMENTO DE MEMORIAIS — diariamente as 07:00 BRT
+export const monitorMemorials = onSchedule(
+  {
+    schedule: '0 7 * * *',
+    timeZone: 'America/Sao_Paulo',
+    region: 'us-central1',
+    memory: '512MiB',
+    timeoutSeconds: 300,
+  },
+  async () => {
+    const config = getMonitorConfig();
+    try {
+      console.log('[monitorMemorials] Executando verificacao diaria...');
+      const snapshot = await runMemorialMonitor(config);
+
+      await getFirestore()
+        .collection('monitor_metrics')
+        .doc('current')
+        .set({ memorial: snapshot, updatedAt: new Date().toISOString() }, { merge: true });
+
+      if (snapshot.alerts.length > 0) {
+        await dispatchAlerts(snapshot.alerts, config);
+      }
+
+      console.log(`[monitorMemorials] Concluido. Total memoriais: ${snapshot.totalMemoriais}`);
+    } catch (err) {
+      console.error('[monitorMemorials] Erro:', err);
+      await logFunctionError('monitorMemorials', err);
+    }
+  }
+);
+
+// 4. RELATORIO DIARIO COMPLETO — diariamente as 07:30 BRT
+export const dailyReport = onSchedule(
+  {
+    schedule: '30 7 * * *',
+    timeZone: 'America/Sao_Paulo',
+    region: 'us-central1',
+    memory: '256MiB',
+    timeoutSeconds: 120,
+  },
+  async () => {
+    const config = getMonitorConfig();
+    try {
+      console.log('[dailyReport] Gerando relatorio diario...');
+
+      const metrics = await getCurrentMetrics();
+      if (!metrics) {
+        console.warn('[dailyReport] Nenhuma metrica atual disponivel. Pulando relatorio.');
+        return;
+      }
+
+      await saveHistoricalPoint(metrics);
+      await sendDailyReport(metrics, config);
+
+      console.log(`[dailyReport] Relatorio enviado. Health Score: ${metrics.systemHealthScore}/100`);
+    } catch (err) {
+      console.error('[dailyReport] Erro:', err);
+      await logFunctionError('dailyReport', err);
+    }
+  }
+);
+
+// 5. TRIGGER MANUAL (HTTP) — para testes e forcar execucao
+export const manualMonitorTrigger = onRequest(
+  {
+    region: 'us-central1',
+    memory: '512MiB',
+    timeoutSeconds: 300,
+  },
+  async (req, res) => {
+    const authHeader = req.headers.authorization ?? '';
+    const token = process.env.MONITOR_TRIGGER_TOKEN ?? '';
+    if (token && authHeader !== `Bearer ${token}`) {
+      res.status(401).json({ error: 'Nao autorizado' });
+      return;
+    }
+
+    const config = getMonitorConfig();
+    const module = (req.query.module as string) ?? 'all';
+
+    try {
+      console.log(`[manualTrigger] Executando modulo: ${module}`);
+      const results: Record<string, unknown> = {};
+
+      if (module === 'technical' || module === 'all') {
+        results.technical = await runTechnicalMonitor(config);
+      }
+      if (module === 'operational' || module === 'all') {
+        results.operational = await runOperationalMonitor(config);
+      }
+      if (module === 'memorial' || module === 'all') {
+        results.memorial = await runMemorialMonitor(config);
+      }
+
+      if (module === 'all' && results.technical && results.operational && results.memorial) {
+        const metrics = await saveCurrentMetrics(
+          results.technical as any,
+          results.operational as any,
+          results.memorial as any
+        );
+        results.systemHealthScore = metrics.systemHealthScore;
+        results.alertsTotal = metrics.alertsOpen.length;
+
+        await dispatchAlerts(metrics.alertsOpen, config);
+      }
+
+      res.status(200).json({ success: true, module, results });
+    } catch (err) {
+      console.error('[manualTrigger] Erro:', err);
+      res.status(500).json({ error: String(err) });
+    }
+  }
+);
+
+// 6. CALLABLE — expoe metricas para o dashboard React
+export const getMonitoringData = onCall(
+  { region: 'us-central1' },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Usuario nao autenticado');
+    }
+
+    const role = request.auth.token['role'] as string | undefined;
+    if (role !== 'superadmin') {
+      throw new HttpsError('permission-denied', 'Apenas SuperAdmins podem ver o dashboard de monitoramento');
+    }
+
+    const { days = 7 } = request.data as { days?: number };
+
+    const [current, history] = await Promise.all([
+      getCurrentMetrics(),
+      getHistory(days),
+    ]);
+
+    return { current, history };
+  }
+);
