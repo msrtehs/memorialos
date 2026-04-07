@@ -31,6 +31,7 @@ import DocumentsCenterPage from '@/pages/admin/DocumentsCenterPage';
 import SupportPage from '@/pages/admin/SupportPage';
 
 import SuperAdminPage from '@/pages/superadmin/SuperAdminPage';
+import MonitoringDashboard from '@/pages/superadmin/MonitoringDashboard';
 import LandingPage from '@/pages/public/LandingPage';
 import SearchPage from '@/pages/public/SearchPage';
 import GardenOfMemories from '@/pages/user/GardenOfMemories';
@@ -123,6 +124,7 @@ const AppContent = () => {
 
         <Route element={<ProtectedRoute allowedRoles={['superadmin']} />}>
           <Route path="/superadmin" element={<SuperAdminPage />} />
+          <Route path="/superadmin/monitoring" element={<MonitoringDashboard />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
