@@ -3,6 +3,7 @@ import {
   addDoc,
   updateDoc,
   deleteDoc,
+  setDoc,
   doc,
   getDocs,
   getDoc,
@@ -46,6 +47,31 @@ export interface Deceased {
 }
 
 const COLLECTION = 'deceaseds';
+// Projeção pública (LGPD-safe) usada pela busca pública. NUNCA incluir campos
+// sensíveis (causeOfDeath, familyMembers, documents) aqui.
+const PUBLIC_COLLECTION = 'public_deceaseds';
+const PUBLIC_FIELDS = ['name', 'dateOfBirth', 'dateOfDeath', 'city', 'state', 'photoUrl', 'cemeteryId'] as const;
+
+// Grava/atualiza a projeção pública (best-effort: falha aqui não quebra o fluxo principal).
+async function syncPublicDeceased(id: string, tenantId: string, source: Record<string, any>) {
+  try {
+    const projection: Record<string, any> = { tenantId, updatedAt: serverTimestamp() };
+    for (const field of PUBLIC_FIELDS) {
+      if (field in source) projection[field] = source[field] ?? null;
+    }
+    await setDoc(doc(db, PUBLIC_COLLECTION, id), projection, { merge: true });
+  } catch (error) {
+    if (import.meta.env.DEV) console.error('Falha ao sincronizar public_deceaseds:', error);
+  }
+}
+
+async function removePublicDeceased(id: string) {
+  try {
+    await deleteDoc(doc(db, PUBLIC_COLLECTION, id));
+  } catch (error) {
+    if (import.meta.env.DEV) console.error('Falha ao remover public_deceaseds:', error);
+  }
+}
 
 export async function getDeceasedList(tenantId: string) {
   const q = query(
@@ -112,9 +138,10 @@ export async function createDeceased(tenantId: string | null, data: Omit<Decease
 
   const docRef = await addDoc(collection(db, COLLECTION), recordData);
 
-  // 4. Log action (if tenant exists)
+  // 4. Log action + projeção pública (apenas para registros de staff, com tenant real)
   if (tenantId) {
     await logAction(tenantId, 'CREATE_DECEASED', COLLECTION, docRef.id, null, recordData);
+    await syncPublicDeceased(docRef.id, tenantId, recordData);
   }
 
   return docRef.id;
@@ -122,6 +149,7 @@ export async function createDeceased(tenantId: string | null, data: Omit<Decease
 
 export async function deleteDeceased(id: string, tenantId: string) {
   await deleteDoc(doc(db, COLLECTION, id));
+  await removePublicDeceased(id);
   await logAction(tenantId, 'DELETE_DECEASED', COLLECTION, id, null, { id });
 }
 
@@ -137,4 +165,6 @@ export async function updateDeceased(id: string, tenantId: string, data: Partial
   });
 
   await logAction(tenantId, 'UPDATE_DECEASED', COLLECTION, id, oldData, data);
+  // Atualiza a projeção pública se algum campo público mudou
+  await syncPublicDeceased(id, tenantId, data as Record<string, any>);
 }

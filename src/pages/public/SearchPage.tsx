@@ -28,7 +28,8 @@ export default function SearchPage() {
     setLoading(true);
     setSearched(true);
     try {
-      const q = query(collection(db, 'deceaseds'), firestoreLimit(200));
+      // Lê a projeção pública (LGPD-safe), não a coleção `deceaseds` (staff-only).
+      const q = query(collection(db, 'public_deceaseds'), firestoreLimit(200));
       const snapshot = await getDocs(q);
       const all = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SearchResult));
       const filtered = all.filter(d =>

@@ -87,6 +87,15 @@ service cloud.firestore {
       allow update, delete: if isStaff(resource.data.tenantId);
     }
 
+    // Public projection of deceased records — usada pela busca pública.
+    // Contém APENAS campos não-sensíveis (nome, datas, cidade, foto).
+    // NUNCA gravar causeOfDeath, familyMembers, documents ou outros dados sensíveis aqui.
+    match /public_deceaseds/{deceasedId} {
+      allow read: if true; // busca pública
+      allow create, update: if isStaff(request.resource.data.tenantId);
+      allow delete: if isStaff(resource.data.tenantId);
+    }
+
     // Death notifications used by user garden + admin allocation flow
     match /death_notifications/{notificationId} {
       allow create: if isSignedIn()
