@@ -18,13 +18,13 @@ service cloud.firestore {
 
     function isManager(tenantId) {
       return isSignedIn()
-        && request.auth.token.role == 'manager'
+        && (request.auth.token.role == 'manager' || request.auth.token.role == 'gestor')
         && request.auth.token.tenantId == tenantId;
     }
 
     function isOperator(tenantId) {
       return isSignedIn()
-        && request.auth.token.role == 'operator'
+        && (request.auth.token.role == 'operator' || request.auth.token.role == 'operador')
         && request.auth.token.tenantId == tenantId;
     }
 
@@ -180,6 +180,12 @@ service cloud.firestore {
       allow delete: if isSuperAdmin();
     }
 
+    // Manager profiles (created by Cloud Functions via Admin SDK)
+    match /profiles/{userId} {
+      allow read: if isSuperAdmin() || request.auth.uid == userId;
+      allow write: if isSuperAdmin();
+    }
+
     // SCI - Operational management
     match /sci_operational_records/{recordId} {
       allow read: if isSignedIn() && isStaff(resource.data.tenantId);
@@ -262,6 +268,34 @@ service cloud.firestore {
       allow read: if isSignedIn() && isStaff(resource.data.tenantId);
       allow create: if isSignedIn() && isStaff(request.resource.data.tenantId);
       allow update, delete: if isSignedIn() && isStaff(resource.data.tenantId);
+    }
+
+    // ─── Monitoring Agent Collections ─────────────────────────────────────────
+    // Leitura: apenas SuperAdmins
+    // Escrita: apenas Cloud Functions (Admin SDK) — bloqueada para clientes
+
+    match /monitor_metrics/{doc} {
+      allow read: if isSuperAdmin();
+      allow write: if false;
+    }
+
+    match /monitor_history/{doc} {
+      allow read: if isSuperAdmin();
+      allow write: if false;
+    }
+
+    match /monitor_alerts/{doc} {
+      allow read: if isSuperAdmin();
+      allow write: if false;
+    }
+
+    match /monitor_function_errors/{doc} {
+      allow read: if isSuperAdmin();
+      allow write: if false;
+    }
+
+    match /_monitor/{doc} {
+      allow read, write: if false;
     }
   }
 }

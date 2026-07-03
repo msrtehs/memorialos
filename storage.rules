@@ -18,12 +18,12 @@ service firebase.storage {
 
     function isManager() {
       return isSignedIn()
-        && request.auth.token.role == 'manager';
+        && (request.auth.token.role == 'manager' || request.auth.token.role == 'gestor');
     }
 
     function isOperator() {
       return isSignedIn()
-        && request.auth.token.role == 'operator';
+        && (request.auth.token.role == 'operator' || request.auth.token.role == 'operador');
     }
 
     function isStaff() {
