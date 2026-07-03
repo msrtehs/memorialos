@@ -1,5 +1,7 @@
 import React from 'react';
 import { BrowserRouter, HashRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
+import { Construction } from 'lucide-react';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 
@@ -9,9 +11,11 @@ import UserLayout from '@/layouts/UserLayout';
 
 import LoginPage from '@/pages/auth/LoginPage';
 import RegisterPage from '@/pages/auth/RegisterPage';
+import UnauthorizedPage from '@/pages/auth/UnauthorizedPage';
 
 import AdminDashboard from '@/pages/admin/AdminDashboard';
 import DeceasedList from '@/pages/admin/DeceasedList';
+import DeceasedDetail from '@/pages/admin/DeceasedDetail';
 import DeceasedForm from '@/pages/admin/DeceasedForm';
 import CemeteryList from '@/pages/admin/CemeteryList';
 import CemeteryDetail from '@/pages/admin/CemeteryDetail';
@@ -19,7 +23,6 @@ import InventoryPage from '@/pages/admin/InventoryPage';
 import FinancialPage from '@/pages/admin/FinancialPage';
 import MaintenancePage from '@/pages/admin/MaintenancePage';
 import SecurityPage from '@/pages/admin/SecurityPage';
-import ExpertAIPage from '@/pages/admin/ExpertAIPage';
 import PartnersPage from '@/pages/admin/PartnersPage';
 import EnvironmentalPage from '@/pages/admin/EnvironmentalPage';
 import AdminReportDeath from '@/pages/admin/AdminReportDeath';
@@ -41,6 +44,16 @@ const Placeholder = ({ title }: { title: string }) => (
   <div className="p-8">
     <h1 className="text-2xl font-bold mb-4">{title}</h1>
     <p className="text-gray-500">Em desenvolvimento...</p>
+  </div>
+);
+
+const ComingSoon = ({ title, eta }: { title: string; eta?: string }) => (
+  <div className="p-8 flex flex-col items-center justify-center min-h-[400px] text-center">
+    <Construction className="text-slate-300 mb-4" size={48} />
+    <h1 className="text-2xl font-bold text-slate-800 mb-2">{title}</h1>
+    <p className="text-slate-500">
+      {eta ? `Disponível em ${eta}` : 'Em desenvolvimento — disponível em breve.'}
+    </p>
   </div>
 );
 
@@ -92,7 +105,7 @@ const AppContent = () => {
           </Route>
         </Route>
 
-        <Route element={<ProtectedRoute allowedRoles={['gestor', 'superadmin', 'operador']} />}>
+        <Route element={<ProtectedRoute allowedRoles={['manager', 'superadmin', 'operator']} />}>
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<Navigate to="/admin/dashboard" replace />} />
             <Route path="dashboard" element={<AdminDashboard />} />
@@ -101,7 +114,6 @@ const AppContent = () => {
             <Route path="financeiro" element={<FinancialPage />} />
             <Route path="manutencao" element={<MaintenancePage />} />
             <Route path="seguranca" element={<SecurityPage />} />
-            <Route path="ia" element={<ExpertAIPage />} />
             <Route path="agentes" element={<AgentsPage />} />
             <Route path="parceiros" element={<PartnersPage />} />
             <Route path="ambiental" element={<EnvironmentalPage />} />
@@ -112,13 +124,15 @@ const AppContent = () => {
             <Route path="cemiterios/:id" element={<CemeteryDetail />} />
             <Route path="falecidos" element={<DeceasedList />} />
             <Route path="falecidos/novo" element={<DeceasedForm />} />
+            <Route path="falecidos/:id" element={<DeceasedDetail />} />
             <Route path="obitos-comunicados" element={<CommunicatedDeaths />} />
             <Route path="comunicar-obito" element={<AdminReportDeath />} />
-            <Route path="solicitacoes" element={<Placeholder title="Central de Solicitacoes" />} />
-            <Route path="configuracoes" element={<Placeholder title="Configuracoes" />} />
+            <Route path="solicitacoes" element={<ComingSoon title="Central de Solicitações" />} />
+            <Route path="configuracoes" element={<ComingSoon title="Configurações do Sistema" />} />
           </Route>
         </Route>
 
+        <Route path="/acesso-negado" element={<UnauthorizedPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
@@ -127,8 +141,18 @@ const AppContent = () => {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          success: { style: { background: '#f0fdf4', color: '#166534', border: '1px solid #bbf7d0' } },
+          error: { style: { background: '#fef2f2', color: '#991b1b', border: '1px solid #fecaca' }, duration: 6000 },
+        }}
+      />
+    </>
   );
 }

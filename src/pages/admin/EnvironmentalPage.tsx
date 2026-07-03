@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import toast from 'react-hot-toast';
 import { AlertTriangle, CheckCircle2, Leaf, Plus, ShieldAlert } from 'lucide-react';
 import { useAdmin } from '@/contexts/AdminContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -8,7 +9,8 @@ import {
   getSciExecutiveSnapshot,
   listEnvironmentalChecks,
   listSanitaryChecks,
-  updateSCIRecord
+  updateSCIRecord,
+  SciExecutiveSnapshot
 } from '@/services/sciService';
 
 type TabMode = 'sanitary' | 'environmental' | 'risk';
@@ -22,7 +24,7 @@ export default function EnvironmentalPage() {
   const [saving, setSaving] = useState(false);
   const [sanitaryChecks, setSanitaryChecks] = useState<any[]>([]);
   const [environmentalChecks, setEnvironmentalChecks] = useState<any[]>([]);
-  const [snapshot, setSnapshot] = useState<any>(null);
+  const [snapshot, setSnapshot] = useState<SciExecutiveSnapshot | null>(null);
 
   const [sanitaryForm, setSanitaryForm] = useState({
     area: '',
@@ -75,15 +77,17 @@ export default function EnvironmentalPage() {
     loadData();
   }, [tenantId, selectedCemeteryId]);
 
-  const sanitizeCemeteryId = selectedCemeteryId === 'all' ? 'all' : selectedCemeteryId;
-
   const handleCreateSanitaryCheck = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!tenantId) return;
+    if (selectedCemeteryId === 'all') {
+      toast.error('Selecione um cemitério específico antes de criar um registro.');
+      return;
+    }
     setSaving(true);
     try {
       await createSanitaryCheck(tenantId, {
-        cemeteryId: sanitizeCemeteryId,
+        cemeteryId: selectedCemeteryId,
         area: sanitaryForm.area,
         indicator: sanitaryForm.indicator,
         riskLevel: sanitaryForm.riskLevel as any,
@@ -93,10 +97,14 @@ export default function EnvironmentalPage() {
         inspectedAt: new Date().toISOString().slice(0, 10),
         inspector: sanitaryForm.inspector
       });
+      toast.success('Checklist sanitário registrado.');
       setSanitaryForm({ area: '', indicator: '', riskLevel: 'low', findings: '', recommendation: '', inspector: '' });
       await loadData();
-    } catch (error) {
-      console.error('Erro ao registrar checklist sanitario:', error);
+    } catch (error: any) {
+      const msg = error?.code === 'permission-denied'
+        ? 'Sem permissão para esta operação.'
+        : error?.message || 'Erro ao salvar. Tente novamente.';
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -105,10 +113,14 @@ export default function EnvironmentalPage() {
   const handleCreateEnvironmentalCheck = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!tenantId) return;
+    if (selectedCemeteryId === 'all') {
+      toast.error('Selecione um cemitério específico antes de criar um registro.');
+      return;
+    }
     setSaving(true);
     try {
       await createEnvironmentalCheck(tenantId, {
-        cemeteryId: sanitizeCemeteryId,
+        cemeteryId: selectedCemeteryId,
         area: environmentForm.area,
         indicator: environmentForm.indicator,
         riskLevel: environmentForm.riskLevel as any,
@@ -118,10 +130,14 @@ export default function EnvironmentalPage() {
         inspectedAt: new Date().toISOString().slice(0, 10),
         inspector: environmentForm.inspector
       });
+      toast.success('Checklist ambiental registrado.');
       setEnvironmentForm({ area: '', indicator: '', riskLevel: 'low', findings: '', recommendation: '', inspector: '' });
       await loadData();
-    } catch (error) {
-      console.error('Erro ao registrar checklist ambiental:', error);
+    } catch (error: any) {
+      const msg = error?.code === 'permission-denied'
+        ? 'Sem permissão para esta operação.'
+        : error?.message || 'Erro ao salvar. Tente novamente.';
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -131,9 +147,10 @@ export default function EnvironmentalPage() {
     if (!tenantId) return;
     try {
       await updateSCIRecord(tenantId, collectionName, id, 'UPDATE_CHECK_STATUS', { status });
+      toast.success('Status atualizado.');
       await loadData();
-    } catch (error) {
-      console.error('Erro ao atualizar status de risco:', error);
+    } catch (error: any) {
+      toast.error(error?.message || 'Erro ao atualizar status de risco.');
     }
   };
 

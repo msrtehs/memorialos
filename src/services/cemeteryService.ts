@@ -2,12 +2,12 @@ import {
   collection,
   addDoc,
   updateDoc,
-  deleteDoc,
   doc,
   getDocs,
   getDoc,
   query,
   where,
+  limit,
   serverTimestamp,
   writeBatch,
   Timestamp
@@ -130,9 +130,57 @@ export async function createCemetery(tenantId: string, data: Omit<Cemetery, 'id'
   return docRef.id;
 }
 
-export async function deleteCemetery(tenantId: string, cemeteryId: string) {
-  await deleteDoc(doc(db, CEMETERIES_COL, cemeteryId));
-  await logAction(tenantId, 'DELETE_CEMETERY', CEMETERIES_COL, cemeteryId, null, null);
+export async function deleteCemetery(tenantId: string, cemeteryId: string): Promise<void> {
+  // Verificar se há jazigos ocupados ou reservados no cemitério
+  const occupiedPlotsQuery = query(
+    collection(db, PLOTS_COL),
+    where('cemeteryId', '==', cemeteryId),
+    where('status', 'in', ['occupied', 'reserved']),
+    limit(1)
+  );
+  const occupiedSnap = await getDocs(occupiedPlotsQuery);
+  if (!occupiedSnap.empty) {
+    throw new Error('Não é possível excluir: o cemitério possui jazigos ocupados ou reservados.');
+  }
+
+  // Verificar notificações pendentes
+  const pendingQuery = query(
+    collection(db, 'death_notifications'),
+    where('cemeteryId', '==', cemeteryId),
+    where('status', 'in', ['submitted', 'reviewing', 'allocated']),
+    limit(1)
+  );
+  const pendingSnap = await getDocs(pendingQuery);
+  if (!pendingSnap.empty) {
+    throw new Error('Não é possível excluir: existem solicitações de sepultamento em andamento.');
+  }
+
+  // Excluir plots disponíveis e bloqueados em lote
+  const allPlotsQuery = query(collection(db, PLOTS_COL), where('cemeteryId', '==', cemeteryId));
+  const allPlotsSnap = await getDocs(allPlotsQuery);
+
+  let batch = writeBatch(db);
+  let ops = 0;
+  for (const plotDoc of allPlotsSnap.docs) {
+    batch.delete(plotDoc.ref);
+    ops++;
+    if (ops >= 450) { await batch.commit(); batch = writeBatch(db); ops = 0; }
+  }
+
+  // Excluir setores
+  const sectorsQuery = query(collection(db, SECTORS_COL), where('cemeteryId', '==', cemeteryId));
+  const sectorsSnap = await getDocs(sectorsQuery);
+  for (const sectorDoc of sectorsSnap.docs) {
+    batch.delete(sectorDoc.ref);
+    ops++;
+    if (ops >= 450) { await batch.commit(); batch = writeBatch(db); ops = 0; }
+  }
+
+  // Excluir o cemitério
+  batch.delete(doc(db, CEMETERIES_COL, cemeteryId));
+  await batch.commit();
+
+  await logAction(tenantId, 'DELETE_CEMETERY', CEMETERIES_COL, cemeteryId, null, { cemeteryId });
 }
 
 export async function updateCemetery(tenantId: string, cemeteryId: string, data: Partial<Cemetery>) {

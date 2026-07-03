@@ -2,9 +2,12 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, Bot, Calendar, CheckCircle, Clock, Droplets, FileText, Leaf, RefreshCw, ShieldAlert, TrendingUp } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import toast from 'react-hot-toast';
 import { useAdmin } from '@/contexts/AdminContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { createSanitaryCheck, getMonthlyBurialTrend, getSciExecutiveSnapshot, SciExecutiveSnapshot } from '@/services/sciService';
+import { StatCardSkeleton } from '@/components/ui/StatCardSkeleton';
+import { formatCurrency } from '@/lib/formatters';
 
 const cardClass = 'bg-white p-6 rounded-xl shadow-sm border border-slate-200';
 
@@ -98,10 +101,14 @@ export default function AdminDashboard() {
     if (!tenantId || !checklist.area || !checklist.indicator || !checklist.findings || !checklist.recommendation || !checklist.inspector) {
       return;
     }
+    if (selectedCemeteryId === 'all') {
+      toast.error('Selecione um cemitério específico antes de criar um registro.');
+      return;
+    }
     setSavingChecklist(true);
     try {
       await createSanitaryCheck(tenantId, {
-        cemeteryId: selectedCemeteryId === 'all' ? 'all' : selectedCemeteryId,
+        cemeteryId: selectedCemeteryId,
         area: checklist.area,
         indicator: checklist.indicator,
         riskLevel: checklist.riskLevel,
@@ -111,6 +118,7 @@ export default function AdminDashboard() {
         inspectedAt: new Date().toISOString().slice(0, 10),
         inspector: checklist.inspector
       });
+      toast.success('Checklist sanitário registrado.');
       setShowChecklist(false);
       setChecklist({
         area: '',
@@ -121,12 +129,23 @@ export default function AdminDashboard() {
         inspector: ''
       });
       await loadSnapshot();
-    } catch (error) {
-      console.error('Falha ao salvar checklist sanitario:', error);
+    } catch (error: any) {
+      toast.error(error?.message || 'Falha ao salvar checklist sanitário.');
     } finally {
       setSavingChecklist(false);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="space-y-8">
+        <div className="h-8 w-64 bg-slate-200 rounded animate-pulse" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+          {Array.from({ length: 8 }).map((_, i) => <StatCardSkeleton key={i} />)}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -325,11 +344,11 @@ export default function AdminDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-4">
               <p className="text-sm text-emerald-700">Receitas</p>
-              <p className="text-2xl font-bold text-emerald-800 mt-1">R$ {snapshot.totalRevenue.toFixed(2)}</p>
+              <p className="text-2xl font-bold text-emerald-800 mt-1">{formatCurrency(snapshot.totalRevenue)}</p>
             </div>
             <div className="rounded-lg border border-rose-100 bg-rose-50 p-4">
               <p className="text-sm text-rose-700">Despesas</p>
-              <p className="text-2xl font-bold text-rose-800 mt-1">R$ {snapshot.totalExpenses.toFixed(2)}</p>
+              <p className="text-2xl font-bold text-rose-800 mt-1">{formatCurrency(snapshot.totalExpenses)}</p>
             </div>
           </div>
         </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -65,6 +65,18 @@ export default function AdminReportDeath() {
   const [obituaryText, setObituaryText] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [cemeteries, setCemeteries] = useState<Cemetery[]>([]);
+
+  // B1: cria o Blob URL uma única vez por arquivo e revoga ao desmontar/trocar
+  const photoPreviewUrl = useMemo(() => {
+    if (!photoFile) return null;
+    return URL.createObjectURL(photoFile);
+  }, [photoFile]);
+
+  useEffect(() => {
+    return () => {
+      if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl);
+    };
+  }, [photoPreviewUrl]);
 
   // Forms
   const form1 = useForm({ resolver: zodResolver(step1Schema) });
@@ -134,8 +146,8 @@ export default function AdminReportDeath() {
             
             <div className="flex justify-center mb-6">
               <div className="w-32 h-32 bg-slate-50 rounded-full flex items-center justify-center border-2 border-dashed border-slate-300 cursor-pointer relative overflow-hidden hover:bg-slate-100 transition-colors">
-                {photoFile ? (
-                  <img src={URL.createObjectURL(photoFile)} className="w-full h-full object-cover" />
+                {photoPreviewUrl ? (
+                  <img src={photoPreviewUrl} className="w-full h-full object-cover" />
                 ) : (
                   <div className="text-center p-2">
                     <Upload className="mx-auto text-slate-400 mb-1" size={24} />
@@ -337,7 +349,7 @@ export default function AdminReportDeath() {
 
             <div className="bg-slate-50 rounded-xl p-6 space-y-4 text-sm text-slate-700 border border-slate-200">
               <div className="flex gap-4">
-                {photoFile && <img src={URL.createObjectURL(photoFile)} className="w-16 h-16 rounded-full object-cover" />}
+                {photoPreviewUrl && <img src={photoPreviewUrl} className="w-16 h-16 rounded-full object-cover" />}
                 <div>
                   <p className="font-bold text-lg text-slate-900">{formData.name}</p>
                   <p>{formData.city} - {formData.state}</p>

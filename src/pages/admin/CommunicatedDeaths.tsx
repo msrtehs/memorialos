@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { 
-  getTenantNotifications, 
-  allocateNotification, 
-  rejectNotification, 
-  fixWrongTenantIdsForNotifications,
-  DeathNotification 
+import {
+  getTenantNotifications,
+  allocateNotification,
+  rejectNotification,
+  DeathNotification
 } from '@/services/notificationService';
 import { 
   getCemeteries, 
@@ -16,7 +15,9 @@ import {
   Plot 
 } from '@/services/cemeteryService';
 import { Check, Clock, MapPin, User, X, AlertCircle, FileText, Calendar } from 'lucide-react';
-import { format } from 'date-fns';
+import { parseISO, format } from 'date-fns';
+import toast from 'react-hot-toast';
+import { useModal } from '@/hooks/useModal';
 
 export default function CommunicatedDeaths() {
   const { tenantId } = useAuth();
@@ -37,6 +38,8 @@ export default function CommunicatedDeaths() {
   const [selectedPlot, setSelectedPlot] = useState('');
   const [rejectionReason, setRejectionReason] = useState('');
   const [actionType, setActionType] = useState<'allocate' | 'reject' | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { containerRef } = useModal(isModalOpen, () => setIsModalOpen(false));
 
   useEffect(() => {
     fetchNotifications();
@@ -44,10 +47,8 @@ export default function CommunicatedDeaths() {
 
   const fetchNotifications = async () => {
     if (!tenantId) return;
-    console.log("Manager Tenant ID:", tenantId); // Debug
     try {
       const data = await getTenantNotifications(tenantId);
-      console.log("Notifications found:", data.length); // Debug
       setNotifications(data);
     } catch (error) {
       console.error("Error fetching notifications:", error);
@@ -92,37 +93,38 @@ export default function CommunicatedDeaths() {
   };
 
   const handleConfirmAllocation = async () => {
-    if (!selectedNotification?.id || !selectedCemetery || !selectedSector || !selectedPlot) return;
-    
+    if (!selectedNotification?.id || !selectedCemetery || !selectedSector || !selectedPlot || !tenantId) return;
+    setIsSubmitting(true);
     try {
       const plot = plots.find(p => p.id === selectedPlot);
-      await allocateNotification(selectedNotification.id, {
-        cemeteryId: selectedCemetery, // In real app, use name or ID depending on display needs
+      await allocateNotification(selectedNotification.id, tenantId, {
+        cemeteryId: selectedCemetery,
         sectorId: selectedSector,
         plotId: selectedPlot,
         plotCode: plot?.code
       });
-      
-      alert("Alocação realizada com sucesso!");
+      toast.success('Sepultamento alocado com sucesso. Registro de falecido criado.');
       setIsModalOpen(false);
-      fetchNotifications();
-    } catch (error) {
-      console.error("Error allocating:", error);
-      alert("Erro ao alocar. Tente novamente.");
+      await fetchNotifications();
+    } catch (error: any) {
+      toast.error(`Erro ao alocar: ${error.message}`);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleConfirmRejection = async () => {
     if (!selectedNotification?.id || !rejectionReason) return;
-    
+    setIsSubmitting(true);
     try {
       await rejectNotification(selectedNotification.id, rejectionReason);
-      alert("Solicitação rejeitada.");
+      toast.success('Solicitação rejeitada.');
       setIsModalOpen(false);
-      fetchNotifications();
-    } catch (error) {
-      console.error("Error rejecting:", error);
-      alert("Erro ao rejeitar.");
+      await fetchNotifications();
+    } catch (error: any) {
+      toast.error(`Erro ao rejeitar: ${error?.message || 'Tente novamente.'}`);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -148,13 +150,6 @@ export default function CommunicatedDeaths() {
           <h1 className="text-2xl font-bold text-slate-900">Comunicações de Óbito</h1>
           <p className="text-slate-500">Gerencie as solicitações de sepultamento recebidas.</p>
         </div>
-        <button 
-          onClick={() => fixWrongTenantIdsForNotifications().then(() => fetchNotifications())}
-          className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1 rounded border border-slate-300"
-          title="Corrigir IDs (Dev Only)"
-        >
-          Fix IDs
-        </button>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
@@ -194,7 +189,7 @@ export default function CommunicatedDeaths() {
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    {notification.deceased.dateOfDeath && format(new Date(notification.deceased.dateOfDeath), 'dd/MM/yyyy')}
+                    {notification.deceased.dateOfDeath && format(parseISO(notification.deceased.dateOfDeath), 'dd/MM/yyyy')}
                   </td>
                   <td className="px-6 py-4 text-xs">
                     ID: {notification.createdBy.substring(0, 8)}...
@@ -234,12 +229,18 @@ export default function CommunicatedDeaths() {
       {/* Modal */}
       {isModalOpen && selectedNotification && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden animate-fade-in-up">
+          <div
+            ref={containerRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="communicated-modal-title"
+            className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden animate-fade-in-up"
+          >
             <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-              <h3 className="text-lg font-bold text-slate-900">
+              <h3 id="communicated-modal-title" className="text-lg font-bold text-slate-900">
                 {actionType === 'allocate' ? 'Definir Sepultamento' : 'Rejeitar Solicitação'}
               </h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setIsModalOpen(false)} aria-label="Fechar modal" className="text-slate-400 hover:text-slate-600">
                 <X size={20} />
               </button>
             </div>
@@ -345,20 +346,20 @@ export default function CommunicatedDeaths() {
                 Cancelar
               </button>
               {actionType === 'allocate' ? (
-                <button 
+                <button
                   onClick={handleConfirmAllocation}
-                  disabled={!selectedPlot}
+                  disabled={!selectedPlot || isSubmitting}
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
                 >
-                  Confirmar Alocação
+                  {isSubmitting ? 'Alocando...' : 'Confirmar Alocação'}
                 </button>
               ) : (
-                <button 
+                <button
                   onClick={handleConfirmRejection}
-                  disabled={!rejectionReason}
+                  disabled={!rejectionReason || isSubmitting}
                   className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
                 >
-                  Confirmar Rejeição
+                  {isSubmitting ? 'Rejeitando...' : 'Confirmar Rejeição'}
                 </button>
               )}
             </div>

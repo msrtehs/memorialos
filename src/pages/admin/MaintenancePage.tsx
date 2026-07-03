@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import toast from 'react-hot-toast';
 import { AlertTriangle, CheckCircle, ClipboardList, Package, Plus } from 'lucide-react';
 import { useAdmin } from '@/contexts/AdminContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -80,10 +81,14 @@ export default function MaintenancePage() {
   const handleCreateTask = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!tenantId || !taskForm.title) return;
+    if (selectedCemeteryId === 'all') {
+      toast.error('Selecione um cemitério específico antes de criar um registro.');
+      return;
+    }
     setSaving(true);
     try {
       await createOperationalRecord(tenantId, {
-        cemeteryId: selectedCemeteryId === 'all' ? 'all' : selectedCemeteryId,
+        cemeteryId: selectedCemeteryId,
         type: 'maintenance',
         title: taskForm.title,
         description: taskForm.description,
@@ -93,6 +98,7 @@ export default function MaintenancePage() {
         responsible: taskForm.responsible,
         plotId: taskForm.plotId || undefined
       });
+      toast.success('Ordem de manutenção criada.');
       setTaskForm({
         title: '',
         description: '',
@@ -102,8 +108,11 @@ export default function MaintenancePage() {
         plotId: ''
       });
       await loadData();
-    } catch (error) {
-      console.error('Erro ao criar ordem de manutencao:', error);
+    } catch (error: any) {
+      const msg = error?.code === 'permission-denied'
+        ? 'Sem permissão para esta operação.'
+        : error?.message || 'Erro ao salvar. Tente novamente.';
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -115,29 +124,38 @@ export default function MaintenancePage() {
       await updateSCIRecord(tenantId, 'sci_operational_records', id, 'UPDATE_MAINTENANCE_STATUS', {
         status
       });
+      toast.success('Status atualizado.');
       await loadData();
-    } catch (error) {
-      console.error('Erro ao atualizar status de manutencao:', error);
+    } catch (error: any) {
+      toast.error(error?.message || 'Erro ao atualizar status de manutenção.');
     }
   };
 
   const handleCreateStockItem = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!tenantId || !stockForm.name || !stockForm.quantity || !stockForm.minQuantity) return;
+    if (selectedCemeteryId === 'all') {
+      toast.error('Selecione um cemitério específico antes de criar um registro.');
+      return;
+    }
     setSaving(true);
     try {
       await createStockItem(tenantId, {
-        cemeteryId: selectedCemeteryId === 'all' ? 'all' : selectedCemeteryId,
+        cemeteryId: selectedCemeteryId,
         name: stockForm.name,
         category: stockForm.category || 'Geral',
         quantity: Number(stockForm.quantity),
         minQuantity: Number(stockForm.minQuantity),
         unit: stockForm.unit || 'un'
       });
+      toast.success('Item de estoque criado.');
       setStockForm({ name: '', category: '', quantity: '', minQuantity: '', unit: '' });
       await loadData();
-    } catch (error) {
-      console.error('Erro ao criar item de estoque:', error);
+    } catch (error: any) {
+      const msg = error?.code === 'permission-denied'
+        ? 'Sem permissão para esta operação.'
+        : error?.message || 'Erro ao salvar. Tente novamente.';
+      toast.error(msg);
     } finally {
       setSaving(false);
     }

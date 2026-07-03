@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import toast from 'react-hot-toast';
 import { BellRing, CalendarDays, ClipboardList, Clock, FileCheck2, Layers3, Plus, Shuffle, TriangleAlert, UserRoundCheck } from 'lucide-react';
 import { useAdmin } from '@/contexts/AdminContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,6 +14,7 @@ import {
   listOperationalRecords,
   updateSCIRecord
 } from '@/services/sciService';
+import { occurrenceStatusLabel, operationalStatusLabel, notificationStatusLabel } from '@/lib/statusLabels';
 
 type OperationalTab =
   | 'burial'
@@ -132,10 +134,14 @@ export default function OperationalPage() {
   const handleCreateRecord = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!tenantId || !recordForm.title) return;
+    if (selectedCemeteryId === 'all') {
+      toast.error('Selecione um cemitério específico antes de criar um registro.');
+      return;
+    }
     setSaving(true);
     try {
       await createOperationalRecord(tenantId, {
-        cemeteryId: selectedCemeteryId === 'all' ? 'all' : selectedCemeteryId,
+        cemeteryId: selectedCemeteryId,
         type: tab as any,
         title: recordForm.title,
         description: recordForm.description,
@@ -145,6 +151,7 @@ export default function OperationalPage() {
         responsible: recordForm.responsible,
         plotId: recordForm.plotId
       });
+      toast.success('Registro criado com sucesso.');
       setRecordForm({
         title: '',
         description: '',
@@ -155,8 +162,11 @@ export default function OperationalPage() {
         plotId: ''
       });
       await loadData();
-    } catch (error) {
-      console.error('Erro ao criar registro operacional:', error);
+    } catch (error: any) {
+      const msg = error?.code === 'permission-denied'
+        ? 'Sem permissão para esta operação.'
+        : error?.message || 'Erro ao salvar. Tente novamente.';
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -165,20 +175,28 @@ export default function OperationalPage() {
   const handleCreateNotification = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!tenantId || !notificationForm.title || !notificationForm.message) return;
+    if (selectedCemeteryId === 'all') {
+      toast.error('Selecione um cemitério específico antes de criar um registro.');
+      return;
+    }
     setSaving(true);
     try {
       await createInternalNotification(tenantId, {
-        cemeteryId: selectedCemeteryId === 'all' ? 'all' : selectedCemeteryId,
+        cemeteryId: selectedCemeteryId,
         title: notificationForm.title,
         message: notificationForm.message,
         audience: notificationForm.audience as any,
         level: notificationForm.level as any,
         status: 'sent'
       });
+      toast.success('Notificação publicada.');
       setNotificationForm({ title: '', message: '', audience: 'all', level: 'info' });
       await loadData();
-    } catch (error) {
-      console.error('Erro ao publicar notificacao interna:', error);
+    } catch (error: any) {
+      const msg = error?.code === 'permission-denied'
+        ? 'Sem permissão para esta operação.'
+        : error?.message || 'Erro ao salvar. Tente novamente.';
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -187,10 +205,14 @@ export default function OperationalPage() {
   const handleCreateOccurrence = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!tenantId || !occurrenceForm.title) return;
+    if (selectedCemeteryId === 'all') {
+      toast.error('Selecione um cemitério específico antes de criar um registro.');
+      return;
+    }
     setSaving(true);
     try {
       await createOccurrenceRecord(tenantId, {
-        cemeteryId: selectedCemeteryId === 'all' ? 'all' : selectedCemeteryId,
+        cemeteryId: selectedCemeteryId,
         category: occurrenceForm.category as any,
         severity: occurrenceForm.severity as any,
         status: 'open',
@@ -202,6 +224,7 @@ export default function OperationalPage() {
         sectorId: occurrenceForm.sectorId || undefined,
         slaDeadline: occurrenceForm.slaDeadline || undefined
       });
+      toast.success('Ocorrência registrada.');
       setOccurrenceForm({
         title: '',
         category: 'operational',
@@ -213,8 +236,11 @@ export default function OperationalPage() {
         slaDeadline: ''
       });
       await loadData();
-    } catch (error) {
-      console.error('Erro ao registrar ocorrencia:', error);
+    } catch (error: any) {
+      const msg = error?.code === 'permission-denied'
+        ? 'Sem permissão para esta operação.'
+        : error?.message || 'Erro ao salvar. Tente novamente.';
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -224,9 +250,10 @@ export default function OperationalPage() {
     if (!tenantId) return;
     try {
       await updateSCIRecord(tenantId, collectionName, id, 'UPDATE_OPERATIONAL_STATUS', { status });
+      toast.success('Status atualizado.');
       await loadData();
-    } catch (error) {
-      console.error('Erro ao atualizar status:', error);
+    } catch (error: any) {
+      toast.error(error?.message || 'Erro ao atualizar status.');
     }
   };
 
@@ -263,7 +290,7 @@ export default function OperationalPage() {
           <input value={recordForm.title} onChange={(e) => setRecordForm((prev) => ({ ...prev, title: e.target.value }))} className="md:col-span-2 border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Titulo da atividade" required />
           <input value={recordForm.description} onChange={(e) => setRecordForm((prev) => ({ ...prev, description: e.target.value }))} className="md:col-span-2 border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Descricao" />
           <input value={recordForm.responsible} onChange={(e) => setRecordForm((prev) => ({ ...prev, responsible: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Responsavel" />
-          <input type="date" value={recordForm.scheduledFor} onChange={(e) => setRecordForm((prev) => ({ ...prev, scheduledFor: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm" />
+          <input type="date" min={today} value={recordForm.scheduledFor} onChange={(e) => setRecordForm((prev) => ({ ...prev, scheduledFor: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm" />
           <div className="flex gap-2">
             <select value={recordForm.priority} onChange={(e) => setRecordForm((prev) => ({ ...prev, priority: e.target.value }))} className="border border-slate-300 rounded-lg px-2 py-2 text-sm bg-white">
               <option value="low">Baixa</option>
@@ -318,9 +345,9 @@ export default function OperationalPage() {
                     <td className="px-4 py-3 text-slate-600">{item.level}</td>
                     <td className="px-4 py-3">
                       <select value={item.status} onChange={(e) => handleStatusUpdate('sci_internal_notifications', item.id, e.target.value)} className="border border-slate-300 rounded px-2 py-1 text-xs bg-white">
-                        <option value="draft">draft</option>
-                        <option value="sent">sent</option>
-                        <option value="archived">archived</option>
+                        <option value="draft">{notificationStatusLabel.draft}</option>
+                        <option value="sent">{notificationStatusLabel.sent}</option>
+                        <option value="archived">{notificationStatusLabel.archived}</option>
                       </select>
                     </td>
                   </tr>
@@ -396,9 +423,9 @@ export default function OperationalPage() {
                       </td>
                       <td className="px-4 py-3">
                         <select value={item.status} onChange={(e) => handleStatusUpdate('sci_occurrences', item.id, e.target.value)} className="border border-slate-300 rounded px-2 py-1 text-xs bg-white">
-                          <option value="open">open</option>
-                          <option value="in_analysis">in_analysis</option>
-                          <option value="resolved">resolved</option>
+                          <option value="open">{occurrenceStatusLabel.open}</option>
+                          <option value="in_analysis">{occurrenceStatusLabel.in_analysis}</option>
+                          <option value="resolved">{occurrenceStatusLabel.resolved}</option>
                         </select>
                       </td>
                     </tr>
@@ -502,10 +529,10 @@ export default function OperationalPage() {
                   <td className="px-4 py-3 text-slate-600">{item.priority}</td>
                   <td className="px-4 py-3">
                     <select value={item.status} onChange={(e) => handleStatusUpdate('sci_operational_records', item.id, e.target.value)} className="border border-slate-300 rounded px-2 py-1 text-xs bg-white">
-                      <option value="planned">planned</option>
-                      <option value="in_progress">in_progress</option>
-                      <option value="done">done</option>
-                      <option value="cancelled">cancelled</option>
+                      <option value="planned">{operationalStatusLabel.planned}</option>
+                      <option value="in_progress">{operationalStatusLabel.in_progress}</option>
+                      <option value="done">{operationalStatusLabel.done}</option>
+                      <option value="cancelled">{operationalStatusLabel.cancelled}</option>
                     </select>
                   </td>
                 </tr>

@@ -14,7 +14,8 @@ import {
   Trash2,
   Plus
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { parseISO, format } from 'date-fns';
+import toast from 'react-hot-toast';
 import { deleteDoc, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -63,6 +64,7 @@ export default function GardenOfMemories() {
   const [notifications, setNotifications] = useState<DeathNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedNotification, setSelectedNotification] = useState<DeathNotification | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<DeathNotification | null>(null);
 
   useEffect(() => {
     async function fetchData() {
@@ -79,27 +81,35 @@ export default function GardenOfMemories() {
   }, []);
 
   const canDeleteNotification = (notification: DeathNotification) => {
-    const isStaff = ['superadmin', 'gestor', 'manager', 'operador', 'operator'].includes(role || '');
+    const isStaff = ['superadmin', 'manager', 'operator'].includes(role || '');
     return isStaff || notification.status === 'rejected';
   };
 
-  const handleDelete = async (event: React.MouseEvent, notification: DeathNotification) => {
+  const handleDelete = (event: React.MouseEvent, notification: DeathNotification) => {
     event.stopPropagation();
     if (!notification.id) return;
     if (!canDeleteNotification(notification)) {
-      alert('Somente registros rejeitados podem ser excluidos.');
+      toast.error('Somente registros rejeitados podem ser excluídos.');
       return;
     }
-    if (!window.confirm('Tem certeza que deseja excluir este registro?')) return;
+    setPendingDelete(notification);
+  };
+
+  const confirmDelete = async () => {
+    const notification = pendingDelete;
+    if (!notification?.id) return;
     try {
       await deleteDoc(doc(db, 'death_notifications', notification.id));
       setNotifications((prev) => prev.filter((item) => item.id !== notification.id));
       if (selectedNotification?.id === notification.id) {
         setSelectedNotification(null);
       }
+      toast.success('Registro excluído.');
     } catch (error) {
       console.error('Erro ao excluir registro:', error);
-      alert('Nao foi possivel excluir o registro.');
+      toast.error('Não foi possível excluir o registro.');
+    } finally {
+      setPendingDelete(null);
     }
   };
 
@@ -202,10 +212,10 @@ export default function GardenOfMemories() {
                   <p className="text-xs text-slate-200">{getRelationshipSubtitle(notification)}</p>
                   <p className="text-sm text-slate-200 font-medium tracking-wide opacity-90 mt-1">
                     {notification.deceased.dateOfBirth &&
-                      format(new Date(notification.deceased.dateOfBirth), 'yyyy')}{' '}
+                      format(parseISO(notification.deceased.dateOfBirth), 'yyyy')}{' '}
                     -{' '}
                     {notification.deceased.dateOfDeath &&
-                      format(new Date(notification.deceased.dateOfDeath), 'yyyy')}
+                      format(parseISO(notification.deceased.dateOfDeath), 'yyyy')}
                   </p>
                 </div>
               </div>
@@ -312,10 +322,10 @@ export default function GardenOfMemories() {
                       <Calendar size={18} className="text-blue-500" />
                       <span>
                         {selectedNotification.deceased.dateOfBirth &&
-                          format(new Date(selectedNotification.deceased.dateOfBirth), 'dd/MM/yyyy')}{' '}
+                          format(parseISO(selectedNotification.deceased.dateOfBirth), 'dd/MM/yyyy')}{' '}
                         -{' '}
                         {selectedNotification.deceased.dateOfDeath &&
-                          format(new Date(selectedNotification.deceased.dateOfDeath), 'dd/MM/yyyy')}
+                          format(parseISO(selectedNotification.deceased.dateOfDeath), 'dd/MM/yyyy')}
                       </span>
                     </div>
                   </div>
@@ -352,6 +362,31 @@ export default function GardenOfMemories() {
                   )}
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pendingDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div role="dialog" aria-modal="true" className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+            <h3 className="text-lg font-bold text-slate-900 mb-2">Excluir registro</h3>
+            <p className="text-sm text-slate-600 mb-6">
+              Tem certeza que deseja excluir este registro? Esta ação não pode ser desfeita.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setPendingDelete(null)}
+                className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm font-medium"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium"
+              >
+                Excluir
+              </button>
             </div>
           </div>
         </div>

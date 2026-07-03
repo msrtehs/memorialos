@@ -1,34 +1,47 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, Search, FileText, MoreHorizontal } from 'lucide-react';
-import { getDeceasedList, Deceased } from '@/services/deceasedService';
+import toast from 'react-hot-toast';
+import { getDeceasedList, deleteDeceased, Deceased } from '@/services/deceasedService';
 import { useAuth } from '@/contexts/AuthContext';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { parseISO, format } from 'date-fns';
 
 export default function DeceasedList() {
   const { tenantId } = useAuth();
   const [deceaseds, setDeceaseds] = useState<Deceased[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+
+  const loadData = async () => {
+    if (!tenantId) return;
+    try {
+      const data = await getDeceasedList(tenantId);
+      setDeceaseds(data);
+    } catch (error) {
+      console.error("Error fetching deceased list:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    async function fetch() {
-      if (tenantId) {
-        try {
-          const data = await getDeceasedList(tenantId);
-          setDeceaseds(data);
-        } catch (error) {
-          console.error("Error fetching deceased list:", error);
-        } finally {
-          setLoading(false);
-        }
-      }
-    }
-    fetch();
+    loadData();
   }, [tenantId]);
 
-  const filteredDeceaseds = deceaseds.filter(d => 
+  const handleDelete = async (id: string) => {
+    if (!tenantId) return;
+    setOpenMenuId(null);
+    try {
+      await deleteDeceased(id, tenantId);
+      toast.success('Registro excluído.');
+      await loadData();
+    } catch (error: any) {
+      toast.error(error?.message || 'Erro ao excluir registro.');
+    }
+  };
+
+  const filteredDeceaseds = deceaseds.filter(d =>
     d.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -87,7 +100,7 @@ export default function DeceasedList() {
                     <div className="text-xs text-slate-500">ID: {person.id?.slice(0, 8)}...</div>
                   </td>
                   <td className="px-6 py-4 text-slate-600">
-                    {person.dateOfDeath ? format(new Date(person.dateOfDeath), 'dd/MM/yyyy') : '-'}
+                    {person.dateOfDeath ? format(parseISO(person.dateOfDeath), 'dd/MM/yyyy') : '-'}
                   </td>
                   <td className="px-6 py-4 text-slate-600">
                     {person.cemeteryId || 'Não definido'}
@@ -100,9 +113,31 @@ export default function DeceasedList() {
                     </div>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <button className="text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-200">
-                      <MoreHorizontal size={18} />
-                    </button>
+                    <div className="relative inline-block">
+                      <button
+                        onClick={() => setOpenMenuId(openMenuId === person.id ? null : person.id!)}
+                        className="text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-200"
+                        aria-label="Ações do registro"
+                      >
+                        <MoreHorizontal size={18} />
+                      </button>
+                      {openMenuId === person.id && (
+                        <div className="absolute right-0 top-8 z-10 bg-white border border-slate-200 rounded-lg shadow-lg py-1 min-w-[140px]">
+                          <Link
+                            to={`/admin/falecidos/${person.id}`}
+                            className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                          >
+                            Ver detalhes
+                          </Link>
+                          <button
+                            onClick={() => handleDelete(person.id!)}
+                            className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                          >
+                            Excluir
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))

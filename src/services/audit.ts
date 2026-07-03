@@ -1,4 +1,4 @@
-import { collection, addDoc, updateDoc, doc, serverTimestamp, getDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 
 // Types
@@ -7,10 +7,21 @@ export interface AuditLog {
   actorUid: string;
   targetCollection: string;
   targetId: string;
-  oldValue?: any;
-  newValue?: any;
+  changedFields?: string[];
   timestamp: any;
   tenantId: string;
+}
+
+// Campos sensíveis que nunca devem ser logados do cliente
+const SENSITIVE_FIELDS = ['causeOfDeath', 'holderDocument', 'password', 'documents'];
+
+function sanitizeForLog(data: any): any {
+  if (!data || typeof data !== 'object') return data;
+  const sanitized: Record<string, any> = {};
+  for (const key of Object.keys(data)) {
+    sanitized[key] = SENSITIVE_FIELDS.includes(key) ? '[REDACTED]' : data[key];
+  }
+  return sanitized;
 }
 
 /**
@@ -26,36 +37,19 @@ export async function logAction(
   newValue: any = null
 ) {
   if (!auth.currentUser) return;
-
   try {
     await addDoc(collection(db, 'audit_logs'), {
       action,
       actorUid: auth.currentUser.uid,
       targetCollection,
       targetId,
-      oldValue,
-      newValue,
+      // Gravar apenas diff resumido, sem campos sensíveis
+      changedFields: newValue ? Object.keys(sanitizeForLog(newValue)) : [],
       timestamp: serverTimestamp(),
       tenantId
     });
   } catch (error) {
-    console.error("Failed to write audit log:", error);
-    // In a strict environment, we might want to throw here to rollback the transaction
-    // if we were using batch/transactions.
+    // Log local em desenvolvimento, silencioso em produção
+    if (import.meta.env.DEV) console.error('Failed to write audit log:', error);
   }
-}
-
-/**
- * Example function to create a deceased record with audit logging
- */
-export async function createDeceasedRecord(tenantId: string, data: any) {
-  const deceasedRef = await addDoc(collection(db, 'deceaseds'), {
-    ...data,
-    tenantId,
-    createdAt: serverTimestamp(),
-    createdBy: auth.currentUser?.uid
-  });
-
-  await logAction(tenantId, 'CREATE_DECEASED', 'deceaseds', deceasedRef.id, null, data);
-  return deceasedRef.id;
 }

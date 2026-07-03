@@ -57,6 +57,44 @@ exports.onDeceasedCreated = functions.firestore
     });
   });
 
+// 2b. Generate Content (AI proxy — mantém a chave Gemini fora do bundle público)
+// DIVERGÊNCIA (C4): o plano indicava require('@google/generative-ai'), mas a chamada
+// usada abaixo (ai.models.generateContent) é a API do pacote @google/genai — o mesmo
+// já usado no frontend. Usamos @google/genai para o código funcionar em runtime.
+const { GoogleGenAI } = require('@google/genai');
+
+exports.generateContent = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Autenticação necessária.');
+  }
+
+  // Rate limiting básico por UID (pode ser sofisticado com Firestore counter)
+  const { prompt, model = 'gemini-2.5-flash', type } = data;
+  const allowedTypes = ['obituary', 'chat', 'manager_agent'];
+  if (!allowedTypes.includes(type)) {
+    throw new functions.https.HttpsError('invalid-argument', 'Tipo de geração inválido.');
+  }
+
+  const apiKey = functions.config().gemini?.api_key
+                 || process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new functions.https.HttpsError('internal', 'Serviço de IA não configurado.');
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
+
+  try {
+    const response = await ai.models.generateContent({
+      model,
+      contents: prompt
+    });
+    return { text: response.text || '' };
+  } catch (error) {
+    console.error('Gemini error:', error);
+    throw new functions.https.HttpsError('internal', 'Erro ao gerar conteúdo.');
+  }
+});
+
 // 3. Moderate Tribute (AI or Manual)
 exports.moderateTribute = functions.firestore
   .document('memorials/{memorialId}/tributes/{tributeId}')

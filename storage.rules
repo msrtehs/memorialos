@@ -12,33 +12,18 @@ service firebase.storage {
       return isSignedIn() && request.auth.token.role == role;
     }
 
-    // Compatibility with current frontend demo login behavior.
-    function isDemoSuperAdmin() {
-      return isSignedIn()
-        && (
-          request.auth.token.email == 'admin@memorial.com'
-          || request.auth.token.email == 'gestor@memorial.com'
-        );
-    }
-
     function isSuperAdmin() {
-      return hasRole('superadmin') || isDemoSuperAdmin();
+      return hasRole('superadmin');
     }
 
     function isManager() {
       return isSignedIn()
-        && (
-          request.auth.token.role == 'manager'
-          || request.auth.token.role == 'gestor'
-        );
+        && request.auth.token.role == 'manager';
     }
 
     function isOperator() {
       return isSignedIn()
-        && (
-          request.auth.token.role == 'operator'
-          || request.auth.token.role == 'operador'
-        );
+        && request.auth.token.role == 'operator';
     }
 
     function isStaff() {
@@ -67,8 +52,8 @@ service firebase.storage {
 
     // Legacy/alternative path for memorial photos.
     match /memorials/{memorialId}/photos/{fileName=**} {
-      allow read: if true;
-      allow write: if isSignedIn();
+      allow read: if true; // fotos de memorial podem ser públicas
+      allow write: if isSignedIn() && isStaff(); // apenas staff pode gravar em memorials
     }
 
     // Legacy/alternative tenant-organized documents.
@@ -79,8 +64,13 @@ service firebase.storage {
 
     // Request evidence files.
     match /tenants/{tenantId}/requests/{requestId}/{fileName=**} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      // Leitura: dono da request ou staff do tenant
+      allow read: if isSignedIn()
+                  && (isStaff() && request.auth.token.tenantId == tenantId
+                      || request.auth.uid == requestId.split('_')[0]); // heurística — melhorar com metadata
+      // Escrita: apenas staff do tenant
+      allow write: if isSignedIn()
+                   && (isStaff() && request.auth.token.tenantId == tenantId);
     }
   }
 }

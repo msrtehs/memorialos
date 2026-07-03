@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import toast from 'react-hot-toast';
 import { FileText, Upload } from 'lucide-react';
 import { useAdmin } from '@/contexts/AdminContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { createDigitalDocument, listDigitalDocuments, updateSCIRecord } from '@/services/sciService';
+import { validateFile } from '@/lib/fileValidation';
 
 export default function DocumentsCenterPage() {
   const { tenantId } = useAuth();
@@ -42,12 +44,16 @@ export default function DocumentsCenterPage() {
   const handleCreateDocument = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!tenantId || !form.title) return;
+    if (selectedCemeteryId === 'all') {
+      toast.error('Selecione um cemitério específico antes de criar um registro.');
+      return;
+    }
     setSaving(true);
     try {
       await createDigitalDocument(
         tenantId,
         {
-          cemeteryId: selectedCemeteryId === 'all' ? 'all' : selectedCemeteryId,
+          cemeteryId: selectedCemeteryId,
           title: form.title,
           documentType: form.documentType as any,
           relatedEntityId: form.relatedEntityId || undefined,
@@ -58,6 +64,7 @@ export default function DocumentsCenterPage() {
         },
         file
       );
+      toast.success('Documento registrado.');
       setForm({
         title: '',
         documentType: 'administrative',
@@ -69,8 +76,11 @@ export default function DocumentsCenterPage() {
       });
       setFile(undefined);
       await loadDocs();
-    } catch (error) {
-      console.error('Erro ao registrar documento:', error);
+    } catch (error: any) {
+      const msg = error?.code === 'permission-denied'
+        ? 'Sem permissão para esta operação.'
+        : error?.message || 'Erro ao salvar. Tente novamente.';
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -80,9 +90,10 @@ export default function DocumentsCenterPage() {
     if (!tenantId) return;
     try {
       await updateSCIRecord(tenantId, 'sci_documents', id, 'UPDATE_DOCUMENT_STATUS', { status });
+      toast.success('Status atualizado.');
       await loadDocs();
-    } catch (error) {
-      console.error('Erro ao atualizar status documental:', error);
+    } catch (error: any) {
+      toast.error(error?.message || 'Erro ao atualizar status documental.');
     }
   };
 
@@ -119,7 +130,25 @@ export default function DocumentsCenterPage() {
           <input type="date" value={form.expiresAt} onChange={(e) => setForm((prev) => ({ ...prev, expiresAt: e.target.value }))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Validade" />
         </div>
         <div className="md:col-span-2">
-          <input type="file" onChange={(e) => setFile(e.target.files?.[0])} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm file:mr-2 file:rounded file:border-0 file:bg-slate-100 file:px-2 file:py-1" />
+          <input
+            type="file"
+            onChange={(e) => {
+              const selected = e.target.files?.[0];
+              if (!selected) {
+                setFile(undefined);
+                return;
+              }
+              const error = validateFile(selected);
+              if (error) {
+                toast.error(error);
+                e.target.value = ''; // resetar o input
+                setFile(undefined);
+                return;
+              }
+              setFile(selected);
+            }}
+            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm file:mr-2 file:rounded file:border-0 file:bg-slate-100 file:px-2 file:py-1"
+          />
         </div>
         <textarea value={form.notes} onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))} className="md:col-span-6 border border-slate-300 rounded-lg px-3 py-2 text-sm h-20" placeholder="Observacoes (opcional)" />
       </form>

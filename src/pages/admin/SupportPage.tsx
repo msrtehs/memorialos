@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import toast from 'react-hot-toast';
 import { BookOpenCheck, LifeBuoy, Plus } from 'lucide-react';
 import { useAdmin } from '@/contexts/AdminContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -65,20 +66,28 @@ export default function SupportPage() {
   const handleCreateTicket = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!tenantId || !ticketForm.title || !ticketForm.details) return;
+    if (selectedCemeteryId === 'all') {
+      toast.error('Selecione um cemitério específico antes de criar um registro.');
+      return;
+    }
     setSaving(true);
     try {
       await createSupportTicket(tenantId, {
-        cemeteryId: selectedCemeteryId === 'all' ? 'all' : selectedCemeteryId,
+        cemeteryId: selectedCemeteryId,
         title: ticketForm.title,
         category: ticketForm.category as any,
         priority: ticketForm.priority as any,
         status: 'open',
         details: ticketForm.details
       });
+      toast.success('Chamado aberto com sucesso.');
       setTicketForm({ title: '', category: 'support', priority: 'medium', details: '' });
       await loadData();
-    } catch (error) {
-      console.error('Erro ao abrir ticket de suporte:', error);
+    } catch (error: any) {
+      const msg = error?.code === 'permission-denied'
+        ? 'Sem permissão para esta operação.'
+        : error?.message || 'Erro ao salvar. Tente novamente.';
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -87,10 +96,14 @@ export default function SupportPage() {
   const handleCreateTraining = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!tenantId || !trainingForm.title || !trainingForm.targetAudience) return;
+    if (selectedCemeteryId === 'all') {
+      toast.error('Selecione um cemitério específico antes de criar um registro.');
+      return;
+    }
     setSaving(true);
     try {
       await createTrainingSession(tenantId, {
-        cemeteryId: selectedCemeteryId === 'all' ? 'all' : selectedCemeteryId,
+        cemeteryId: selectedCemeteryId,
         title: trainingForm.title,
         date: trainingForm.date,
         modality: trainingForm.modality as any,
@@ -98,6 +111,7 @@ export default function SupportPage() {
         status: 'planned',
         notes: trainingForm.notes || undefined
       });
+      toast.success('Treinamento agendado.');
       setTrainingForm({
         title: '',
         date: new Date().toISOString().slice(0, 10),
@@ -106,8 +120,11 @@ export default function SupportPage() {
         notes: ''
       });
       await loadData();
-    } catch (error) {
-      console.error('Erro ao registrar treinamento:', error);
+    } catch (error: any) {
+      const msg = error?.code === 'permission-denied'
+        ? 'Sem permissão para esta operação.'
+        : error?.message || 'Erro ao salvar. Tente novamente.';
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -117,9 +134,10 @@ export default function SupportPage() {
     if (!tenantId) return;
     try {
       await updateSCIRecord(tenantId, collectionName, id, 'UPDATE_SUPPORT_STATUS', { status });
+      toast.success('Status atualizado.');
       await loadData();
-    } catch (error) {
-      console.error('Erro ao atualizar status:', error);
+    } catch (error: any) {
+      toast.error(error?.message || 'Erro ao atualizar status.');
     }
   };
 

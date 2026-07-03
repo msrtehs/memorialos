@@ -3,8 +3,10 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useNavigate, Link } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { createDeceased } from '@/services/deceasedService';
+import { validateFile } from '@/lib/fileValidation';
 import { ArrowLeft, Upload, X } from 'lucide-react';
 import { Cemetery, getCemeteries } from '@/services/cemeteryService';
 
@@ -19,7 +21,10 @@ const schema = z.object({
   state: z.string().optional(),
   profession: z.string().optional(),
   familyMembers: z.string().optional()
-});
+}).refine(
+  (data) => new Date(data.dateOfDeath) >= new Date(data.dateOfBirth),
+  { message: 'Data de falecimento deve ser posterior ao nascimento', path: ['dateOfDeath'] }
+);
 
 type DeceasedFormType = z.infer<typeof schema>;
 
@@ -49,7 +54,18 @@ export default function DeceasedForm() {
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
-      setFiles((prev) => [...prev, ...Array.from(event.target.files!)]);
+      const selected = Array.from(event.target.files) as File[];
+      const valid: File[] = [];
+      for (const file of selected) {
+        const error = validateFile(file);
+        if (error) {
+          toast.error(`${file.name}: ${error}`);
+          continue;
+        }
+        valid.push(file);
+      }
+      if (valid.length) setFiles((prev) => [...prev, ...valid]);
+      event.target.value = ''; // resetar o input
     }
   };
 
@@ -69,10 +85,13 @@ export default function DeceasedForm() {
         },
         files
       );
+      toast.success('Registro salvo com sucesso.');
       navigate('/admin/falecidos');
-    } catch (error) {
-      console.error(error);
-      alert('Erro ao salvar registro.');
+    } catch (error: any) {
+      const msg = error?.code === 'permission-denied'
+        ? 'Sem permissão para esta operação.'
+        : error?.message || 'Erro ao salvar registro.';
+      toast.error(msg);
     } finally {
       setIsSubmitting(false);
     }

@@ -45,16 +45,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (currentUser) {
         try {
           const tokenResult = await getIdTokenResult(currentUser);
-          let userRole = (tokenResult.claims.role as string) || 'citizen';
-          
-          // DEMO OVERRIDE: Allow specific email to be superadmin
-          if (currentUser.email === 'admin@memorial.com' || currentUser.email === 'gestor@memorial.com') {
-            userRole = 'superadmin';
-          }
-          
+          const userRole = (tokenResult.claims.role as string) || 'citizen';
+          const userTenantId = (tokenResult.claims.tenantId as string) || null;
+
           setRole(userRole);
-          // Use UID as default tenantId to ensure data ownership/isolation in demo mode
-          setTenantId((tokenResult.claims.tenantId as string) || currentUser.uid);
+          setTenantId(userTenantId);
         } catch (e) {
           console.error("Error fetching claims", e);
         }

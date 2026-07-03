@@ -1,13 +1,14 @@
-import { 
-  collection, 
-  addDoc, 
-  updateDoc, 
-  doc, 
-  getDocs, 
-  getDoc, 
-  query, 
-  where, 
-  orderBy, 
+import {
+  collection,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
+  getDocs,
+  getDoc,
+  query,
+  where,
+  orderBy,
   serverTimestamp,
   limit
 } from 'firebase/firestore';
@@ -117,6 +118,11 @@ export async function createDeceased(tenantId: string | null, data: Omit<Decease
   }
 
   return docRef.id;
+}
+
+export async function deleteDeceased(id: string, tenantId: string) {
+  await deleteDoc(doc(db, COLLECTION, id));
+  await logAction(tenantId, 'DELETE_DECEASED', COLLECTION, id, null, { id });
 }
 
 export async function updateDeceased(id: string, tenantId: string, data: Partial<Deceased>) {

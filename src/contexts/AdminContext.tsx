@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { getCemeteries, Cemetery } from '@/services/cemeteryService';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -7,6 +7,7 @@ interface AdminContextType {
   setSelectedCemeteryId: (id: string) => void;
   cemeteries: Cemetery[];
   loading: boolean;
+  refreshCemeteries: () => Promise<void>;
 }
 
 const AdminContext = createContext<AdminContextType | undefined>(undefined);
@@ -17,26 +18,28 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
   const [cemeteries, setCemeteries] = useState<Cemetery[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function load() {
-      if (tenantId) {
-        try {
-          const data = await getCemeteries(tenantId);
-          setCemeteries(data);
-        } catch (error) {
-          console.error("Failed to load cemeteries", error);
-        } finally {
-          setLoading(false);
-        }
-      } else {
-        setLoading(false);
-      }
+  const refreshCemeteries = useCallback(async () => {
+    if (!tenantId) {
+      setLoading(false);
+      return;
     }
-    load();
+    setLoading(true);
+    try {
+      const data = await getCemeteries(tenantId);
+      setCemeteries(data);
+    } catch (error) {
+      console.error('Failed to load cemeteries', error);
+    } finally {
+      setLoading(false);
+    }
   }, [tenantId]);
 
+  useEffect(() => {
+    refreshCemeteries();
+  }, [refreshCemeteries]);
+
   return (
-    <AdminContext.Provider value={{ selectedCemeteryId, setSelectedCemeteryId, cemeteries, loading }}>
+    <AdminContext.Provider value={{ selectedCemeteryId, setSelectedCemeteryId, cemeteries, loading, refreshCemeteries }}>
       {children}
     </AdminContext.Provider>
   );

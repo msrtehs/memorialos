@@ -6,3 +6,11 @@ coverage/
 *.log
 .env*
 !.env.example
+# Credenciais/segredos que nunca devem ir para o repositório
+serviceAccountKey.json
+**/serviceAccountKey.json
+.runtimeconfig.json
+firebase-debug.log
+
+# Worktrees temporários do Claude
+.claude/worktrees/

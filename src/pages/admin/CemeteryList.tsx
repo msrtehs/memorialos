@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Layers, MapPin, Plus, Trash2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { getCemeteries, createCemetery, deleteCemetery, Cemetery } from '@/services/cemeteryService';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAdmin } from '@/contexts/AdminContext';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -19,6 +21,7 @@ type CemeteryForm = z.infer<typeof schema>;
 
 export default function CemeteryList() {
   const { tenantId } = useAuth();
+  const { refreshCemeteries } = useAdmin();
   const [cemeteries, setCemeteries] = useState<Cemetery[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -51,25 +54,29 @@ export default function CemeteryList() {
         latitude: data.latitude ? Number(data.latitude) : undefined,
         longitude: data.longitude ? Number(data.longitude) : undefined
       });
+      toast.success('Cemitério criado com sucesso.');
       setIsModalOpen(false);
       reset();
-      fetchCemeteries();
+      await fetchCemeteries();
+      await refreshCemeteries(); // atualiza o dropdown do seletor de unidades imediatamente
     } catch (error: any) {
-      console.error('Erro ao criar cemiterio:', error);
-      alert(error?.message || 'Erro ao criar cemiterio.');
+      const msg = error?.code === 'permission-denied'
+        ? 'Sem permissão para esta operação.'
+        : error?.message || 'Erro ao criar cemitério.';
+      toast.error(msg);
     }
   };
 
   const handleDelete = async (event: React.MouseEvent, cemeteryId: string) => {
     event.preventDefault();
     if (!tenantId) return;
-    if (!window.confirm('Confirmar exclusao deste cemiterio?')) return;
     try {
       await deleteCemetery(tenantId, cemeteryId);
-      fetchCemeteries();
-    } catch (error) {
-      console.error('Erro ao excluir cemiterio:', error);
-      alert('Nao foi possivel excluir este cemiterio.');
+      toast.success('Cemitério excluído.');
+      await fetchCemeteries();
+      await refreshCemeteries(); // remove a opção do dropdown imediatamente
+    } catch (error: any) {
+      toast.error(error?.message || 'Não foi possível excluir este cemitério.');
     }
   };
 

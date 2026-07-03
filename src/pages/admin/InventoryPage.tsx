@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import toast from 'react-hot-toast';
 import { Bot, Filter, Info, List, Map as MapIcon, Plus, Save, Search } from 'lucide-react';
 import { useAdmin } from '@/contexts/AdminContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -155,9 +156,10 @@ export default function InventoryPage() {
     setSaving(true);
     try {
       await updatePlot(plotId, tenantId, { status });
+      toast.success('Status do jazigo atualizado.');
       await loadData();
-    } catch (error) {
-      console.error('Erro ao atualizar status do jazigo:', error);
+    } catch (error: any) {
+      toast.error(error?.message || 'Erro ao atualizar status do jazigo.');
     } finally {
       setSaving(false);
     }
@@ -165,7 +167,10 @@ export default function InventoryPage() {
 
   const handleSavePlot = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!tenantId || selectedCemeteryId === 'all') return;
+    if (!tenantId || selectedCemeteryId === 'all') {
+      toast.error('Selecione um cemitério específico antes de criar um registro.');
+      return;
+    }
     const selectedSector = sectors.find((item) => item.id === newPlot.sectorId);
     if (!selectedSector) return;
 
@@ -193,6 +198,7 @@ export default function InventoryPage() {
         concessionStartDate: newPlot.concessionStartDate || undefined,
         concessionEndDate: newPlot.concessionEndDate || undefined
       });
+      toast.success('Jazigo criado com sucesso.');
       setIsModalOpen(false);
       setNewPlot((prev) => ({
         ...prev,
@@ -207,8 +213,12 @@ export default function InventoryPage() {
         concessionEndDate: ''
       }));
       await loadData();
-    } catch (error) {
-      console.error('Erro ao criar jazigo:', error);
+    } catch (error: any) {
+      const msg = error?.code === 'permission-denied'
+        ? 'Sem permissão para esta operação.'
+        : error?.message || 'Erro ao salvar. Tente novamente.';
+      toast.error(msg);
+      // NÃO fecha o modal em caso de erro
     } finally {
       setSaving(false);
     }

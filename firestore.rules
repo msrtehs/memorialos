@@ -12,34 +12,19 @@ service cloud.firestore {
       return isSignedIn() && request.auth.token.role == role;
     }
 
-    // Compatibility with current frontend demo login behavior.
-    function isDemoSuperAdmin() {
-      return isSignedIn()
-        && (
-          request.auth.token.email == 'admin@memorial.com'
-          || request.auth.token.email == 'gestor@memorial.com'
-        );
-    }
-
     function isSuperAdmin() {
-      return hasRole('superadmin') || isDemoSuperAdmin();
+      return hasRole('superadmin');
     }
 
     function isManager(tenantId) {
       return isSignedIn()
-        && (
-          request.auth.token.role == 'manager'
-          || request.auth.token.role == 'gestor'
-        )
+        && request.auth.token.role == 'manager'
         && request.auth.token.tenantId == tenantId;
     }
 
     function isOperator(tenantId) {
       return isSignedIn()
-        && (
-          request.auth.token.role == 'operator'
-          || request.auth.token.role == 'operador'
-        )
+        && request.auth.token.role == 'operator'
         && request.auth.token.tenantId == tenantId;
     }
 
@@ -49,7 +34,12 @@ service cloud.firestore {
 
     // Tenants
     match /tenants/{tenantId} {
-      allow read: if true;
+      // Nome e endereço do cemitério podem ser públicos, mas dados internos não.
+      // Restringir write ao superadmin e read a usuários autenticados do tenant.
+      allow read: if isSignedIn()
+                  && (isSuperAdmin()
+                      || request.auth.token.tenantId == tenantId
+                      || request.auth.token.role == 'citizen'); // cidadão pode ler info básica
       allow write: if isSuperAdmin();
     }
 
@@ -69,21 +59,30 @@ service cloud.firestore {
 
     // Plots
     match /plots/{plotId} {
-      allow read: if true;
+      // Dados básicos (código, status, setor) podem ser públicos para o mapa.
+      // Dados de concessão (concessionHolder, holderDocument) apenas para staff.
+      // Como o Firestore não suporta projeção por campo nas regras,
+      // a solução correta é separar em duas coleções ou restringir tudo.
+      allow read: if isSignedIn()
+                  && (isStaff(resource.data.tenantId)
+                      || resource.data.status == 'available'); // mapa público só mostra disponíveis
       allow create: if isStaff(request.resource.data.tenantId);
       allow update, delete: if isStaff(resource.data.tenantId);
     }
 
     // Plot concessions (ownership history)
     match /plot_concessions/{concessionId} {
-      allow read: if true;
+      allow read: if isStaff(resource.data.tenantId);
       allow create: if isStaff(request.resource.data.tenantId);
       allow update, delete: if isStaff(resource.data.tenantId);
     }
 
     // Official deceased records
     match /deceaseds/{deceasedId} {
-      allow read: if true;
+      // Leitura pública apenas dos campos não-sensíveis — via documento público separado ou projeção.
+      // Até que uma coleção pública dedicada seja criada, acesso restrito a staff.
+      allow read: if isStaff(resource.data.tenantId)
+                  || (isSignedIn() && request.auth.uid in resource.data.managersUid);
       allow create: if isStaff(request.resource.data.tenantId);
       allow update, delete: if isStaff(resource.data.tenantId);
     }
@@ -91,7 +90,10 @@ service cloud.firestore {
     // Death notifications used by user garden + admin allocation flow
     match /death_notifications/{notificationId} {
       allow create: if isSignedIn()
-                    && request.resource.data.createdBy == request.auth.uid;
+                    && request.resource.data.createdBy == request.auth.uid
+                    && request.resource.data.status == 'submitted'
+                    && !('allocation' in request.resource.data)
+                    && !('rejectionReason' in request.resource.data);
 
       allow read: if isSignedIn()
                   && (
@@ -99,10 +101,16 @@ service cloud.firestore {
                     || isStaff(resource.data.tenantId)
                   );
 
-      allow update: if isSignedIn()
-                    && (
-                      resource.data.createdBy == request.auth.uid
-                      || isStaff(resource.data.tenantId)
+      // Cidadão só pode atualizar campos de dados do falecido enquanto status == 'submitted'
+      // Staff pode atualizar qualquer campo (alocação, rejeição, status)
+      allow update: if isStaff(resource.data.tenantId)
+                    || (
+                      isSignedIn()
+                      && resource.data.createdBy == request.auth.uid
+                      && resource.data.status == 'submitted'
+                      // Impede cidadão de alterar campos sensíveis de controle
+                      && !request.resource.data.diff(resource.data).affectedKeys()
+                          .hasAny(['status', 'allocation', 'rejectionReason', 'tenantId', 'createdBy'])
                     );
 
       allow delete: if isSignedIn()
@@ -143,8 +151,13 @@ service cloud.firestore {
 
     // Audit logs (immutable)
     match /audit_logs/{logId} {
-      allow read: if isSuperAdmin();
-      allow create: if isSignedIn();
+      allow read: if isSuperAdmin() || isManager(resource.data.tenantId);
+      allow create: if isSignedIn()
+                    && isStaff(request.resource.data.tenantId)
+                    && request.resource.data.actorUid == request.auth.uid
+                    && !('oldValue' in request.resource.data
+                         ? request.resource.data.oldValue.keys().hasAny(['causeOfDeath', 'holderDocument'])
+                         : false); // não permitir logs com campos sensíveis — use Cloud Function para logs completos
       allow update, delete: if false;
     }
 

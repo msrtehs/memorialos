@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import toast from 'react-hot-toast';
 import { DollarSign, Plus, TrendingUp } from 'lucide-react';
 import { useAdmin } from '@/contexts/AdminContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { createFinancialRecord, getSciExecutiveSnapshot, listFinancialRecords } from '@/services/sciService';
+import { createFinancialRecord, getSciExecutiveSnapshot, listFinancialRecords, FinancialRecord, SciExecutiveSnapshot } from '@/services/sciService';
+import { formatCurrency } from '@/lib/formatters';
 
 type Tab = 'transactions' | 'pricing' | 'projections';
 
@@ -17,8 +19,8 @@ export default function FinancialPage() {
   const { tenantId } = useAuth();
   const { selectedCemeteryId } = useAdmin();
   const [activeTab, setActiveTab] = useState<Tab>('transactions');
-  const [records, setRecords] = useState<any[]>([]);
-  const [snapshot, setSnapshot] = useState<any>(null);
+  const [records, setRecords] = useState<FinancialRecord[]>([]);
+  const [snapshot, setSnapshot] = useState<SciExecutiveSnapshot | null>(null);
   const [saving, setSaving] = useState(false);
 
   const [form, setForm] = useState({
@@ -55,17 +57,23 @@ export default function FinancialPage() {
   const handleCreateRecord = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!tenantId || !form.description || !form.value) return;
+    if (selectedCemeteryId === 'all') {
+      toast.error('Selecione um cemitério específico antes de criar um registro.');
+      return;
+    }
     setSaving(true);
     try {
+      // A6.2: aiAudited não é mais gravado como true por padrão — só deve ser true
+      // quando a Cloud Function de auditoria IA processar o registro (futura implementação).
       await createFinancialRecord(tenantId, {
-        cemeteryId: selectedCemeteryId === 'all' ? 'all' : selectedCemeteryId,
+        cemeteryId: selectedCemeteryId,
         description: form.description,
         category: form.category as any,
         referenceType: form.referenceType as any,
         value: Number(form.value),
-        occurredAt: form.occurredAt,
-        aiAudited: true
+        occurredAt: form.occurredAt
       });
+      toast.success('Lançamento financeiro criado.');
       setForm({
         description: '',
         category: 'income',
@@ -74,8 +82,11 @@ export default function FinancialPage() {
         occurredAt: new Date().toISOString().slice(0, 10)
       });
       await loadData();
-    } catch (error) {
-      console.error('Erro ao criar lancamento:', error);
+    } catch (error: any) {
+      const msg = error?.code === 'permission-denied'
+        ? 'Sem permissão para esta operação.'
+        : error?.message || 'Erro ao salvar. Tente novamente.';
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -136,7 +147,7 @@ export default function FinancialPage() {
                     <td className="px-4 py-3 font-medium text-slate-900">{item.description}</td>
                     <td className="px-4 py-3 text-slate-600">{item.referenceType}</td>
                     <td className={`px-4 py-3 font-semibold ${item.category === 'income' ? 'text-emerald-700' : 'text-rose-700'}`}>
-                      {item.category === 'income' ? '+' : '-'} R$ {Number(item.value).toFixed(2)}
+                      {item.category === 'income' ? '+' : '-'} {formatCurrency(Number(item.value))}
                     </td>
                     <td className="px-4 py-3">
                       {item.aiAudited ? (
@@ -166,7 +177,7 @@ export default function FinancialPage() {
               </div>
               <h3 className="mt-4 font-bold text-slate-800">{item.item}</h3>
               <p className="text-sm text-slate-500 mt-1">{item.description}</p>
-              <p className="text-2xl font-bold text-slate-900 mt-4">R$ {item.price.toFixed(2)}</p>
+              <p className="text-2xl font-bold text-slate-900 mt-4">{formatCurrency(item.price)}</p>
             </div>
           ))}
         </div>
@@ -187,15 +198,15 @@ export default function FinancialPage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
                   <div className="bg-white/10 rounded-xl p-4">
                     <p className="text-xs uppercase tracking-wider text-blue-100">Receita total</p>
-                    <p className="text-2xl font-bold mt-1">R$ {(snapshot?.totalRevenue || 0).toFixed(2)}</p>
+                    <p className="text-2xl font-bold mt-1">{formatCurrency(snapshot?.totalRevenue || 0)}</p>
                   </div>
                   <div className="bg-white/10 rounded-xl p-4">
                     <p className="text-xs uppercase tracking-wider text-blue-100">Despesas totais</p>
-                    <p className="text-2xl font-bold mt-1">R$ {(snapshot?.totalExpenses || 0).toFixed(2)}</p>
+                    <p className="text-2xl font-bold mt-1">{formatCurrency(snapshot?.totalExpenses || 0)}</p>
                   </div>
                   <div className="bg-white/10 rounded-xl p-4">
                     <p className="text-xs uppercase tracking-wider text-blue-100">Saldo projetado</p>
-                    <p className="text-2xl font-bold mt-1">R$ {balance.toFixed(2)}</p>
+                    <p className="text-2xl font-bold mt-1">{formatCurrency(balance)}</p>
                   </div>
                 </div>
               </div>

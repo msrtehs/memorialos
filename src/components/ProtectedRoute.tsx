@@ -18,7 +18,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) 
   }
 
   if (allowedRoles && role && !allowedRoles.includes(role)) {
-    return <Navigate to="/unauthorized" replace />;
+    return <Navigate to="/acesso-negado" replace />;
   }
 
   return <Outlet />;

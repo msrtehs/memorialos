@@ -1,47 +1,36 @@
-import { GoogleGenAI } from '@google/genai';
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import { app } from '@/lib/firebase'; // `app` exportado de firebase.ts
 
-function getAIClient() {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY?.trim();
-  if (!apiKey) return null;
-  return new GoogleGenAI({ apiKey });
-}
+const functions = getFunctions(app);
+const generateContentFn = httpsCallable<
+  { prompt: string; type: string; model?: string },
+  { text: string }
+>(functions, 'generateContent');
 
-export const generateObituary = async (data: any) => {
+export const generateObituary = async (data: any): Promise<string> => {
+  const prompt = `
+    Escreva um obituário respeitoso, acolhedor e emocionante para:
+    Nome: ${data.name}
+    Data de Nascimento: ${data.dateOfBirth}
+    Data de Falecimento: ${data.dateOfDeath}
+    Cidade: ${data.city} - ${data.state}
+    Profissão: ${data.profession}
+    Hobbies/Paixões: ${data.hobbies}
+    Família: ${data.familyMembers}
+    Realizações: ${data.achievements}
+    Relação com quem comunica: ${data.relationshipType || 'Não informado'}
+    Subtítulo de homenagem: ${data.relationshipLabel || 'Não informado'}
+
+    O tom deve ser sereno, humano e confortante para a família.
+    Escreva em português do Brasil. Máximo de 3 parágrafos.
+  `;
   try {
-    const ai = getAIClient();
-    if (!ai) {
-      return 'Servico de IA indisponivel: chave Gemini nao configurada.';
-    }
-
-    const prompt = `
-      Escreva um obituario respeitoso, acolhedor e emocionante para:
-      Nome: ${data.name}
-      Data de Nascimento: ${data.dateOfBirth}
-      Data de Falecimento: ${data.dateOfDeath}
-      Cidade: ${data.city} - ${data.state}
-      Profissao: ${data.profession}
-      Hobbies/Paixoes: ${data.hobbies}
-      Familia: ${data.familyMembers}
-      Realizacoes: ${data.achievements}
-      Relacao com quem comunica: ${data.relationshipType || 'Nao informado'}
-      Subtitulo de homenagem: ${data.relationshipLabel || 'Nao informado'}
-
-      O tom deve ser sereno, humano e confortante para a familia.
-      Escreva em portugues do Brasil. Maximo de 3 paragrafos.
-    `;
-
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt
-    });
-
-    return response.text || '';
+    const result = await generateContentFn({ prompt, type: 'obituary' });
+    return result.data.text;
   } catch (error: any) {
     console.error('Error generating obituary:', error);
-    if (error.message && error.message.includes('API key')) {
-      return 'Erro: chave de API invalida ou expirada.';
-    }
-    throw error;
+    if (error.code === 'functions/unauthenticated') return 'Faça login para usar o gerador de obituário.';
+    return 'Erro ao gerar obituário. Tente novamente.';
   }
 };
 
@@ -49,34 +38,16 @@ export const chatWithMemorialAI = async (
   history: { role: 'user' | 'model'; parts: string }[],
   message: string,
   userContext?: string
-) => {
-  try {
-    const ai = getAIClient();
-    if (!ai) {
-      return 'Servico de IA indisponivel no momento.';
-    }
+): Promise<string> => {
+  // Para chat com histórico, envie o histórico serializado no prompt
+  const fullPrompt = [
+    `Contexto: ${userContext || 'Não informado.'}`,
+    ...history.map(h => `${h.role === 'user' ? 'Usuário' : 'Assistente'}: ${h.parts}`),
+    `Usuário: ${message}`
+  ].join('\n');
 
-    const chat = ai.chats.create({
-      model: 'gemini-2.5-flash',
-      config: {
-        systemInstruction: `Voce e o Memorial AI, um assistente virtual do sistema MemorialOS.
-Seja sempre empatico, respeitoso e claro.
-Voce pode ajudar com duvidas sobre comunicar obito, horarios, localizacao de jazigos e orientacoes gerais.
-Nao de conselhos medicos ou juridicos definitivos.
-Contexto emocional do usuario: ${userContext || 'Nao informado.'}`
-      },
-      history: history.map((item) => ({
-        role: item.role,
-        parts: [{ text: item.parts }]
-      }))
-    });
-
-    const result = await chat.sendMessage({ message });
-    return result.text || '';
-  } catch (error) {
-    console.error('Error in chat:', error);
-    throw error;
-  }
+  const result = await generateContentFn({ prompt: fullPrompt, type: 'chat' });
+  return result.data.text;
 };
 
 interface ManagerAgentInput {
@@ -91,37 +62,14 @@ export const chatWithManagerAgent = async (
   history: { role: 'user' | 'model'; parts: string }[],
   message: string,
   contextSummary: string
-) => {
-  try {
-    const ai = getAIClient();
-    if (!ai) {
-      return `Assistente ${agent.name} indisponivel no momento (Gemini nao configurado).`;
-    }
+): Promise<string> => {
+  const fullPrompt = [
+    `Você é ${agent.name}. Objetivo: ${agent.objective}`,
+    `Contexto: ${contextSummary}`,
+    ...history.map(h => `${h.role === 'user' ? 'Usuário' : 'Assistente'}: ${h.parts}`),
+    `Usuário: ${message}`
+  ].join('\n');
 
-    const chat = ai.chats.create({
-      model: 'gemini-2.5-flash',
-      config: {
-        systemInstruction: `
-          Voce e ${agent.name}, agente inteligente do Sistema Cemiterial Inteligente (SCI).
-          Objetivo: ${agent.objective}
-          Modulos autorizados: ${agent.modules.join(', ') || 'todos'}
-          Instrucoes especificas: ${agent.prompt}
-          Contexto operacional atual: ${contextSummary}
-
-          Responda em portugues do Brasil, de forma executiva, clara e orientada a acao.
-          Sempre aponte riscos sanitarios, ambientais e operacionais quando houver sinais no contexto.
-        `
-      },
-      history: history.map((item) => ({
-        role: item.role,
-        parts: [{ text: item.parts }]
-      }))
-    });
-
-    const result = await chat.sendMessage({ message });
-    return result.text || '';
-  } catch (error) {
-    console.error('Error in manager agent chat:', error);
-    throw error;
-  }
+  const result = await generateContentFn({ prompt: fullPrompt, type: 'manager_agent' });
+  return result.data.text;
 };

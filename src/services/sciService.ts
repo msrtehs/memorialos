@@ -7,12 +7,16 @@ import {
   query,
   serverTimestamp,
   updateDoc,
-  where
+  where,
+  limit,
+  startAfter,
+  QueryDocumentSnapshot
 } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import { auth, db, storage } from '@/lib/firebase';
 import { getCemeteryPlots, getTenantPlots, Plot } from '@/services/cemeteryService';
 import { logAction } from '@/services/audit';
+import { getCached, setCached, invalidateCache } from '@/lib/queryCache';
 
 type RiskLevel = 'low' | 'medium' | 'high';
 type Priority = 'low' | 'medium' | 'high' | 'critical';
@@ -69,10 +73,13 @@ export interface InternalNotification {
   createdBy?: string;
 }
 
-export interface SanitaryCheck {
+// M7.4: SanitaryCheck e EnvironmentalCheck compartilham a mesma estrutura.
+// Interface base única + aliases diferenciados por `checkType`.
+export interface EnvironmentalSanitaryCheck {
   id?: string;
   tenantId: string;
   cemeteryId: string;
+  checkType: 'sanitary' | 'environmental'; // diferenciador
   area: string;
   indicator: string;
   riskLevel: RiskLevel;
@@ -85,21 +92,10 @@ export interface SanitaryCheck {
   createdBy?: string;
 }
 
-export interface EnvironmentalCheck {
-  id?: string;
-  tenantId: string;
-  cemeteryId: string;
-  area: string;
-  indicator: string;
-  riskLevel: RiskLevel;
-  findings: string;
-  recommendation: string;
-  status: 'open' | 'monitoring' | 'closed';
-  inspectedAt: string;
-  inspector: string;
-  createdAt?: any;
-  createdBy?: string;
-}
+// Mesmas coleções separadas (sci_sanitary_checks e sci_environmental_checks),
+// mas usando a mesma interface TypeScript base.
+export type SanitaryCheck = EnvironmentalSanitaryCheck & { checkType: 'sanitary' };
+export type EnvironmentalCheck = EnvironmentalSanitaryCheck & { checkType: 'environmental' };
 
 export interface FinancialRecord {
   id?: string;
@@ -235,6 +231,11 @@ async function createForTenant<T extends object>(
   action: string,
   payload: T
 ) {
+  // A7.2: Guard contra cemeteryId inválido
+  if ('cemeteryId' in payload && (payload as any).cemeteryId === 'all') {
+    throw new Error('cemeteryId inválido: não é possível gravar com "all". Selecione uma unidade.');
+  }
+
   const data = {
     ...payload,
     tenantId,
@@ -243,6 +244,11 @@ async function createForTenant<T extends object>(
   };
   const docRef = await addDoc(collection(db, collectionName), data);
   await logAction(tenantId, action, collectionName, docRef.id, null, data);
+  // NOTA: o plano (A3.3) lista invalidar em cada create individual
+  // (createOperationalRecord, createOccurrenceRecord, createSanitaryCheck, etc.).
+  // Como todas essas funções passam por createForTenant, invalidamos aqui uma única
+  // vez para cobrir todas elas sem duplicação. allocateNotification invalida à parte.
+  invalidateCache(`sci_snapshot:${tenantId}`);
   return docRef.id;
 }
 
@@ -292,16 +298,16 @@ export function listSanitaryChecks(tenantId: string) {
   return listByTenant<SanitaryCheck>(COLS.sanitary, tenantId);
 }
 
-export function createSanitaryCheck(tenantId: string, payload: Omit<SanitaryCheck, 'id' | 'tenantId'>) {
-  return createForTenant(tenantId, COLS.sanitary, 'CREATE_SANITARY_CHECK', payload);
+export function createSanitaryCheck(tenantId: string, payload: Omit<SanitaryCheck, 'id' | 'tenantId' | 'checkType'>) {
+  return createForTenant(tenantId, COLS.sanitary, 'CREATE_SANITARY_CHECK', { ...payload, checkType: 'sanitary' as const });
 }
 
 export function listEnvironmentalChecks(tenantId: string) {
   return listByTenant<EnvironmentalCheck>(COLS.environmental, tenantId);
 }
 
-export function createEnvironmentalCheck(tenantId: string, payload: Omit<EnvironmentalCheck, 'id' | 'tenantId'>) {
-  return createForTenant(tenantId, COLS.environmental, 'CREATE_ENVIRONMENTAL_CHECK', payload);
+export function createEnvironmentalCheck(tenantId: string, payload: Omit<EnvironmentalCheck, 'id' | 'tenantId' | 'checkType'>) {
+  return createForTenant(tenantId, COLS.environmental, 'CREATE_ENVIRONMENTAL_CHECK', { ...payload, checkType: 'environmental' as const });
 }
 
 export function listFinancialRecords(tenantId: string) {
@@ -438,7 +444,33 @@ function filterByCemetery<T extends { cemeteryId: string }>(records: T[], cemete
   return records.filter((item) => item.cemeteryId === cemeteryId);
 }
 
+// Paginação para plots: buscar em lotes de 500
+async function getAllTenantPlotsWithPagination(tenantId: string): Promise<Plot[]> {
+  const BATCH_SIZE = 500;
+  const all: Plot[] = [];
+  let lastDoc: QueryDocumentSnapshot | null = null;
+
+  while (true) {
+    const constraints = [
+      where('tenantId', '==', tenantId),
+      limit(BATCH_SIZE),
+      ...(lastDoc ? [startAfter(lastDoc)] : [])
+    ];
+    const q = query(collection(db, 'plots'), ...constraints);
+    const snap = await getDocs(q);
+    if (snap.empty) break;
+    all.push(...snap.docs.map(d => ({ id: d.id, ...d.data() } as Plot)));
+    lastDoc = snap.docs[snap.docs.length - 1];
+    if (snap.docs.length < BATCH_SIZE) break;
+  }
+  return all;
+}
+
 async function getSciSnapshot(tenantId: string, cemeteryId: string): Promise<SciSnapshot> {
+  const cacheKey = `sci_snapshot:${tenantId}:${cemeteryId}`;
+  const cached = getCached<SciSnapshot>(cacheKey);
+  if (cached) return cached;
+
   const [
     plots,
     operational,
@@ -448,7 +480,7 @@ async function getSciSnapshot(tenantId: string, cemeteryId: string): Promise<Sci
     documents,
     financial
   ] = await Promise.all([
-    getTenantPlots(tenantId),
+    getAllTenantPlotsWithPagination(tenantId),
     listOperationalRecords(tenantId),
     listOccurrenceRecords(tenantId),
     listSanitaryChecks(tenantId),
@@ -457,7 +489,7 @@ async function getSciSnapshot(tenantId: string, cemeteryId: string): Promise<Sci
     listFinancialRecords(tenantId)
   ]);
 
-  return {
+  const snapshot: SciSnapshot = {
     plots: filterByCemetery(plots, cemeteryId),
     operational: filterByCemetery(operational, cemeteryId),
     occurrences: filterByCemetery(occurrences, cemeteryId),
@@ -466,6 +498,9 @@ async function getSciSnapshot(tenantId: string, cemeteryId: string): Promise<Sci
     documents: filterByCemetery(documents, cemeteryId),
     financial: filterByCemetery(financial, cemeteryId)
   };
+
+  setCached(cacheKey, snapshot, 60_000); // cache por 1 minuto
+  return snapshot;
 }
 
 export async function getSciExecutiveSnapshot(tenantId: string, cemeteryId: string): Promise<SciExecutiveSnapshot> {

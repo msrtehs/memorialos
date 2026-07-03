@@ -6,7 +6,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { auth } from '@/lib/firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { ShieldCheck } from 'lucide-react';
 import AppLogo from '@/components/AppLogo';
 
 const loginSchema = z.object({
@@ -23,7 +22,7 @@ export default function LoginPage() {
   // Redirect if already logged in
   React.useEffect(() => {
     if (user && role) {
-      if (['gestor', 'superadmin', 'operador'].includes(role)) {
+      if (['manager', 'superadmin', 'operator'].includes(role)) {
         navigate('/admin/dashboard');
       } else {
         navigate('/app');
@@ -42,16 +41,6 @@ export default function LoginPage() {
     } catch (error) {
       console.error(error);
       setError('root', { message: 'Credenciais inválidas ou erro no servidor.' });
-    }
-  };
-
-  const handleManagerAccess = async () => {
-    try {
-      // Silent login for demo purposes
-      await signInWithEmailAndPassword(auth, 'admin@memorial.com', 'admin123');
-      // Navigation is handled by useEffect based on role
-    } catch (error) {
-      console.error("Erro no acesso de gestor:", error);
     }
   };
 
@@ -102,16 +91,6 @@ export default function LoginPage() {
 
         <div className="mt-6 text-center text-sm text-slate-500">
           <p>Não tem uma conta? <Link to="/cadastro" className="text-blue-600 font-medium hover:underline">Cadastre-se</Link></p>
-        </div>
-
-        <div className="mt-8 pt-6 border-t border-slate-100">
-          <button 
-            onClick={handleManagerAccess}
-            className="w-full flex items-center justify-center gap-2 text-slate-500 hover:text-blue-700 hover:bg-blue-50 py-2 rounded-lg transition-colors text-sm font-medium"
-          >
-            <ShieldCheck size={16} />
-            Acesso para Gestores
-          </button>
         </div>
       </div>
     </div>

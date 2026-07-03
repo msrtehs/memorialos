@@ -3,7 +3,7 @@ import { Bot, Plus, Send, User } from 'lucide-react';
 import { useAdmin } from '@/contexts/AdminContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { chatWithManagerAgent } from '@/services/aiService';
-import { createAIAgent, getSciExecutiveSnapshot, listAIAgents, updateSCIRecord } from '@/services/sciService';
+import { createAIAgent, getSciExecutiveSnapshot, listAIAgents, updateSCIRecord, SciExecutiveSnapshot } from '@/services/sciService';
 
 export default function AgentsPage() {
   const { tenantId } = useAuth();
@@ -15,7 +15,8 @@ export default function AgentsPage() {
   const [messages, setMessages] = useState<{ role: 'user' | 'model'; text: string }[]>([
     { role: 'model', text: 'Painel de agentes IA pronto. Selecione um agente ou crie um novo chatbot para iniciar.' }
   ]);
-  const [snapshot, setSnapshot] = useState<any>(null);
+  const [snapshot, setSnapshot] = useState<SciExecutiveSnapshot | null>(null);
+  const [pendingAgentId, setPendingAgentId] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: '',
     mode: 'agent',
@@ -85,6 +86,27 @@ export default function AgentsPage() {
     } catch (error) {
       console.error('Erro ao atualizar agente IA:', error);
     }
+  };
+
+  const hasChatHistory = messages.some((m) => m.role === 'user');
+
+  const handleSelectAgent = (agentId: string) => {
+    if (agentId === selectedAgentId) return;
+    // B3: se há histórico ativo, confirmar antes de limpar (sem window.confirm)
+    if (hasChatHistory) {
+      setPendingAgentId(agentId);
+      return;
+    }
+    setSelectedAgentId(agentId);
+  };
+
+  const confirmSwitchAndClear = () => {
+    if (!pendingAgentId) return;
+    setMessages([
+      { role: 'model', text: 'Painel de agentes IA pronto. Selecione um agente ou crie um novo chatbot para iniciar.' }
+    ]);
+    setSelectedAgentId(pendingAgentId);
+    setPendingAgentId(null);
   };
 
   const buildContext = () => {
@@ -164,7 +186,7 @@ export default function AgentsPage() {
           <div className="space-y-2 max-h-[420px] overflow-y-auto">
             {agents.map((agent) => (
               <div key={agent.id} className={`border rounded-lg p-3 ${selectedAgentId === agent.id ? 'border-blue-300 bg-blue-50' : 'border-slate-200 bg-white'}`}>
-                <button onClick={() => setSelectedAgentId(agent.id)} className="w-full text-left">
+                <button onClick={() => handleSelectAgent(agent.id)} className="w-full text-left">
                   <div className="flex justify-between items-start">
                     <div>
                       <p className="font-medium text-slate-800">{agent.name}</p>
@@ -223,6 +245,31 @@ export default function AgentsPage() {
           </div>
         </div>
       </div>
+
+      {pendingAgentId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div role="dialog" aria-modal="true" className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+            <h3 className="text-lg font-bold text-slate-900 mb-2">Trocar de agente</h3>
+            <p className="text-sm text-slate-600 mb-6">
+              Você tem uma conversa em andamento. Ao trocar de agente, o histórico atual será limpo. Deseja continuar?
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setPendingAgentId(null)}
+                className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm font-medium"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmSwitchAndClear}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium"
+              >
+                Limpar e trocar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
