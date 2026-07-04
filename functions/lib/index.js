@@ -15,9 +15,10 @@ const alertService_1 = require("./monitoring/alertService");
 const dashboardService_1 = require("./monitoring/dashboardService");
 (0, app_1.initializeApp)();
 const openRouterApiKey = (0, params_1.defineSecret)('OPENROUTER_API_KEY');
-// Modelo de IA no OpenRouter (":free" = gratuito). Pode ser trocado por outro,
-// ex.: 'meta-llama/llama-3.3-70b-instruct:free' ou 'deepseek/deepseek-chat:free'.
-const OPENROUTER_MODEL = 'google/gemini-2.0-flash-exp:free';
+// Modelo de IA no OpenRouter (":free" = gratuito). Modelos gratuitos giram com o
+// tempo; se este sair do ar, troque por outro da lista (openrouter.ai/models),
+// ex.: 'openai/gpt-oss-120b:free' ou 'qwen/qwen3-next-80b-a3b-instruct:free'.
+const OPENROUTER_MODEL = 'meta-llama/llama-3.3-70b-instruct:free';
 function generateTenantId(name) {
     return `tenant_${name.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}`;
 }
