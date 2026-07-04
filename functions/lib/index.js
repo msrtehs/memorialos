@@ -7,7 +7,6 @@ const params_1 = require("firebase-functions/params");
 const app_1 = require("firebase-admin/app");
 const auth_1 = require("firebase-admin/auth");
 const firestore_1 = require("firebase-admin/firestore");
-const genai_1 = require("@google/genai");
 // Monitoring imports
 const technicalMonitor_1 = require("./monitoring/technicalMonitor");
 const operationalMonitor_1 = require("./monitoring/operationalMonitor");
@@ -15,7 +14,10 @@ const memorialMonitor_1 = require("./monitoring/memorialMonitor");
 const alertService_1 = require("./monitoring/alertService");
 const dashboardService_1 = require("./monitoring/dashboardService");
 (0, app_1.initializeApp)();
-const geminiApiKey = (0, params_1.defineSecret)('GEMINI_API_KEY');
+const openRouterApiKey = (0, params_1.defineSecret)('OPENROUTER_API_KEY');
+// Modelo de IA no OpenRouter (":free" = gratuito). Pode ser trocado por outro,
+// ex.: 'meta-llama/llama-3.3-70b-instruct:free' ou 'deepseek/deepseek-chat:free'.
+const OPENROUTER_MODEL = 'google/gemini-2.0-flash-exp:free';
 function generateTenantId(name) {
     return `tenant_${name.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}`;
 }
@@ -178,19 +180,49 @@ exports.deleteTenantUser = (0, https_1.onCall)(async (request) => {
     await db.collection('profiles').doc(uid).delete();
     return { success: true };
 });
-// ─── AI Functions (Gemini) ───────────────────────────────────────────────────
-function getAI() {
-    const key = geminiApiKey.value();
+// Converte o histórico {role:'user'|'model', parts} para o formato de mensagens do OpenAI.
+function historyToMessages(history) {
+    return (history || []).map((item) => ({
+        role: item.role === 'model' ? 'assistant' : 'user',
+        content: item.parts,
+    }));
+}
+async function openRouterChat(messages) {
+    var _a, _b, _c, _d;
+    const key = openRouterApiKey.value();
     if (!key)
-        throw new https_1.HttpsError('failed-precondition', 'Gemini API key not configured');
-    return new genai_1.GoogleGenAI({ apiKey: key });
+        throw new https_1.HttpsError('failed-precondition', 'OPENROUTER_API_KEY nao configurada');
+    try {
+        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${key}`,
+                'Content-Type': 'application/json',
+                'HTTP-Referer': 'https://msrtehs.github.io/memorialos',
+                'X-Title': 'MemorialOS',
+            },
+            body: JSON.stringify({ model: OPENROUTER_MODEL, messages }),
+        });
+        if (!response.ok) {
+            const errText = await response.text();
+            console.error('OpenRouter error:', response.status, errText);
+            throw new https_1.HttpsError('internal', 'Erro ao gerar conteudo de IA.');
+        }
+        const data = (await response.json());
+        return (_d = (_c = (_b = (_a = data.choices) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.message) === null || _c === void 0 ? void 0 : _c.content) !== null && _d !== void 0 ? _d : '';
+    }
+    catch (err) {
+        if (err instanceof https_1.HttpsError)
+            throw err;
+        console.error('OpenRouter network error:', err);
+        throw new https_1.HttpsError('internal', 'Falha de conexao com o servico de IA.');
+    }
 }
 // Generate obituary text
-exports.generateObituary = (0, https_1.onCall)({ secrets: [geminiApiKey] }, async (request) => {
+exports.generateObituary = (0, https_1.onCall)({ secrets: [openRouterApiKey] }, async (request) => {
     if (!request.auth)
         throw new https_1.HttpsError('unauthenticated', 'Login necessario');
     const data = request.data;
-    const ai = getAI();
     const prompt = `
     Escreva um obituario respeitoso, acolhedor e emocionante para:
     Nome: ${data.name || ''}
@@ -207,49 +239,37 @@ exports.generateObituary = (0, https_1.onCall)({ secrets: [geminiApiKey] }, asyn
     O tom deve ser sereno, humano e confortante para a familia.
     Escreva em portugues do Brasil. Maximo de 3 paragrafos.
   `;
-    const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-    });
-    return { text: response.text || '' };
+    const text = await openRouterChat([{ role: 'user', content: prompt }]);
+    return { text };
 });
 // Chat with Memorial AI (citizen virtual assistant)
-exports.chatWithAI = (0, https_1.onCall)({ secrets: [geminiApiKey] }, async (request) => {
+exports.chatWithAI = (0, https_1.onCall)({ secrets: [openRouterApiKey] }, async (request) => {
     if (!request.auth)
         throw new https_1.HttpsError('unauthenticated', 'Login necessario');
     const { history, message, userContext } = request.data;
     if (!message)
         throw new https_1.HttpsError('invalid-argument', 'Mensagem vazia');
-    const ai = getAI();
-    const chat = ai.chats.create({
-        model: 'gemini-2.5-flash',
-        config: {
-            systemInstruction: `Voce e o Memorial AI, um assistente virtual do sistema MemorialOS.
+    const systemInstruction = `Voce e o Memorial AI, um assistente virtual do sistema MemorialOS.
 Seja sempre empatico, respeitoso e claro.
 Voce pode ajudar com duvidas sobre comunicar obito, horarios, localizacao de jazigos e orientacoes gerais.
 Nao de conselhos medicos ou juridicos definitivos.
-Contexto emocional do usuario: ${userContext || 'Nao informado.'}`,
-        },
-        history: (history || []).map((item) => ({
-            role: item.role,
-            parts: [{ text: item.parts }],
-        })),
-    });
-    const result = await chat.sendMessage({ message });
-    return { text: result.text || '' };
+Contexto emocional do usuario: ${userContext || 'Nao informado.'}`;
+    const messages = [
+        { role: 'system', content: systemInstruction },
+        ...historyToMessages(history),
+        { role: 'user', content: message },
+    ];
+    const text = await openRouterChat(messages);
+    return { text };
 });
 // Chat with Manager Agent (admin AI agents)
-exports.chatWithManagerAgent = (0, https_1.onCall)({ secrets: [geminiApiKey] }, async (request) => {
+exports.chatWithManagerAgent = (0, https_1.onCall)({ secrets: [openRouterApiKey] }, async (request) => {
     if (!request.auth)
         throw new https_1.HttpsError('unauthenticated', 'Login necessario');
     const { agent, history, message, contextSummary } = request.data;
     if (!message || !agent)
         throw new https_1.HttpsError('invalid-argument', 'Dados invalidos');
-    const ai = getAI();
-    const chat = ai.chats.create({
-        model: 'gemini-2.5-flash',
-        config: {
-            systemInstruction: `
+    const systemInstruction = `
         Voce e ${agent.name}, agente inteligente do Sistema Cemiterial Inteligente (SCI).
         Objetivo: ${agent.objective}
         Modulos autorizados: ${(agent.modules || []).join(', ') || 'todos'}
@@ -258,15 +278,14 @@ exports.chatWithManagerAgent = (0, https_1.onCall)({ secrets: [geminiApiKey] }, 
 
         Responda em portugues do Brasil, de forma executiva, clara e orientada a acao.
         Sempre aponte riscos sanitarios, ambientais e operacionais quando houver sinais no contexto.
-      `,
-        },
-        history: (history || []).map((item) => ({
-            role: item.role,
-            parts: [{ text: item.parts }],
-        })),
-    });
-    const result = await chat.sendMessage({ message });
-    return { text: result.text || '' };
+      `;
+    const messages = [
+        { role: 'system', content: systemInstruction },
+        ...historyToMessages(history),
+        { role: 'user', content: message },
+    ];
+    const text = await openRouterChat(messages);
+    return { text };
 });
 // ─── Monitoring Agent ───────────────────────────────────────────────────────
 function getMonitorConfig() {

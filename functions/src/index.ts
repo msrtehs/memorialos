@@ -4,7 +4,6 @@ import { defineSecret } from 'firebase-functions/params';
 import { initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
-import { GoogleGenAI } from '@google/genai';
 
 // Monitoring imports
 import { runTechnicalMonitor } from './monitoring/technicalMonitor';
@@ -21,7 +20,10 @@ import type { MonitorConfig } from './monitoring/types';
 
 initializeApp();
 
-const geminiApiKey = defineSecret('GEMINI_API_KEY');
+const openRouterApiKey = defineSecret('OPENROUTER_API_KEY');
+// Modelo de IA no OpenRouter (":free" = gratuito). Pode ser trocado por outro,
+// ex.: 'meta-llama/llama-3.3-70b-instruct:free' ou 'deepseek/deepseek-chat:free'.
+const OPENROUTER_MODEL = 'google/gemini-2.0-flash-exp:free';
 
 function generateTenantId(name: string): string {
   return `tenant_${name.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}`;
@@ -245,20 +247,58 @@ export const deleteTenantUser = onCall(async (request) => {
   return { success: true };
 });
 
-// ─── AI Functions (Gemini) ───────────────────────────────────────────────────
+// ─── AI Functions (OpenRouter) ─────────────────────────────────────────────
+// A IA usa o OpenRouter (API compatível com OpenAI) em vez do Gemini direto —
+// evita bloqueios de região/idade e billing pré-pago. Chave no secret OPENROUTER_API_KEY.
 
-function getAI(): GoogleGenAI {
-  const key = geminiApiKey.value();
-  if (!key) throw new HttpsError('failed-precondition', 'Gemini API key not configured');
-  return new GoogleGenAI({ apiKey: key });
+type ChatMessage = { role: 'system' | 'user' | 'assistant'; content: string };
+
+// Converte o histórico {role:'user'|'model', parts} para o formato de mensagens do OpenAI.
+function historyToMessages(history?: { role: string; parts: string }[]): ChatMessage[] {
+  return (history || []).map((item) => ({
+    role: item.role === 'model' ? 'assistant' : 'user',
+    content: item.parts,
+  }));
+}
+
+async function openRouterChat(messages: ChatMessage[]): Promise<string> {
+  const key = openRouterApiKey.value();
+  if (!key) throw new HttpsError('failed-precondition', 'OPENROUTER_API_KEY nao configurada');
+
+  try {
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${key}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://msrtehs.github.io/memorialos',
+        'X-Title': 'MemorialOS',
+      },
+      body: JSON.stringify({ model: OPENROUTER_MODEL, messages }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error('OpenRouter error:', response.status, errText);
+      throw new HttpsError('internal', 'Erro ao gerar conteudo de IA.');
+    }
+
+    const data = (await response.json()) as {
+      choices?: { message?: { content?: string } }[];
+    };
+    return data.choices?.[0]?.message?.content ?? '';
+  } catch (err) {
+    if (err instanceof HttpsError) throw err;
+    console.error('OpenRouter network error:', err);
+    throw new HttpsError('internal', 'Falha de conexao com o servico de IA.');
+  }
 }
 
 // Generate obituary text
-export const generateObituary = onCall({ secrets: [geminiApiKey] }, async (request) => {
+export const generateObituary = onCall({ secrets: [openRouterApiKey] }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Login necessario');
 
   const data = request.data as Record<string, string>;
-  const ai = getAI();
 
   const prompt = `
     Escreva um obituario respeitoso, acolhedor e emocionante para:
@@ -277,16 +317,12 @@ export const generateObituary = onCall({ secrets: [geminiApiKey] }, async (reque
     Escreva em portugues do Brasil. Maximo de 3 paragrafos.
   `;
 
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
-    contents: prompt,
-  });
-
-  return { text: response.text || '' };
+  const text = await openRouterChat([{ role: 'user', content: prompt }]);
+  return { text };
 });
 
 // Chat with Memorial AI (citizen virtual assistant)
-export const chatWithAI = onCall({ secrets: [geminiApiKey] }, async (request) => {
+export const chatWithAI = onCall({ secrets: [openRouterApiKey] }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Login necessario');
 
   const { history, message, userContext } = request.data as {
@@ -297,29 +333,24 @@ export const chatWithAI = onCall({ secrets: [geminiApiKey] }, async (request) =>
 
   if (!message) throw new HttpsError('invalid-argument', 'Mensagem vazia');
 
-  const ai = getAI();
-
-  const chat = ai.chats.create({
-    model: 'gemini-2.5-flash',
-    config: {
-      systemInstruction: `Voce e o Memorial AI, um assistente virtual do sistema MemorialOS.
+  const systemInstruction = `Voce e o Memorial AI, um assistente virtual do sistema MemorialOS.
 Seja sempre empatico, respeitoso e claro.
 Voce pode ajudar com duvidas sobre comunicar obito, horarios, localizacao de jazigos e orientacoes gerais.
 Nao de conselhos medicos ou juridicos definitivos.
-Contexto emocional do usuario: ${userContext || 'Nao informado.'}`,
-    },
-    history: (history || []).map((item) => ({
-      role: item.role as 'user' | 'model',
-      parts: [{ text: item.parts }],
-    })),
-  });
+Contexto emocional do usuario: ${userContext || 'Nao informado.'}`;
 
-  const result = await chat.sendMessage({ message });
-  return { text: result.text || '' };
+  const messages: ChatMessage[] = [
+    { role: 'system', content: systemInstruction },
+    ...historyToMessages(history),
+    { role: 'user', content: message },
+  ];
+
+  const text = await openRouterChat(messages);
+  return { text };
 });
 
 // Chat with Manager Agent (admin AI agents)
-export const chatWithManagerAgent = onCall({ secrets: [geminiApiKey] }, async (request) => {
+export const chatWithManagerAgent = onCall({ secrets: [openRouterApiKey] }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Login necessario');
 
   const { agent, history, message, contextSummary } = request.data as {
@@ -331,12 +362,7 @@ export const chatWithManagerAgent = onCall({ secrets: [geminiApiKey] }, async (r
 
   if (!message || !agent) throw new HttpsError('invalid-argument', 'Dados invalidos');
 
-  const ai = getAI();
-
-  const chat = ai.chats.create({
-    model: 'gemini-2.5-flash',
-    config: {
-      systemInstruction: `
+  const systemInstruction = `
         Voce e ${agent.name}, agente inteligente do Sistema Cemiterial Inteligente (SCI).
         Objetivo: ${agent.objective}
         Modulos autorizados: ${(agent.modules || []).join(', ') || 'todos'}
@@ -345,16 +371,16 @@ export const chatWithManagerAgent = onCall({ secrets: [geminiApiKey] }, async (r
 
         Responda em portugues do Brasil, de forma executiva, clara e orientada a acao.
         Sempre aponte riscos sanitarios, ambientais e operacionais quando houver sinais no contexto.
-      `,
-    },
-    history: (history || []).map((item) => ({
-      role: item.role as 'user' | 'model',
-      parts: [{ text: item.parts }],
-    })),
-  });
+      `;
 
-  const result = await chat.sendMessage({ message });
-  return { text: result.text || '' };
+  const messages: ChatMessage[] = [
+    { role: 'system', content: systemInstruction },
+    ...historyToMessages(history),
+    { role: 'user', content: message },
+  ];
+
+  const text = await openRouterChat(messages);
+  return { text };
 });
 
 // ─── Monitoring Agent ───────────────────────────────────────────────────────
