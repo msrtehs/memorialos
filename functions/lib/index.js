@@ -15,10 +15,10 @@ const alertService_1 = require("./monitoring/alertService");
 const dashboardService_1 = require("./monitoring/dashboardService");
 (0, app_1.initializeApp)();
 const openRouterApiKey = (0, params_1.defineSecret)('OPENROUTER_API_KEY');
-// Modelo de IA no OpenRouter (":free" = gratuito). Modelos gratuitos giram com o
-// tempo; se este sair do ar, troque por outro da lista (openrouter.ai/models),
-// ex.: 'openai/gpt-oss-120b:free' ou 'qwen/qwen3-next-80b-a3b-instruct:free'.
-const OPENROUTER_MODEL = 'meta-llama/llama-3.3-70b-instruct:free';
+// Modelo de IA no OpenRouter. Modelo pago ultra-barato (~$0.10/$0.32 por 1M tokens,
+// ~$0.0002 por obituário) — capacidade dedicada e confiável, ao contrário dos ":free"
+// que ficam rate-limited sob carga. Alternativas: 'openai/gpt-4o-mini'.
+const OPENROUTER_MODEL = 'meta-llama/llama-3.3-70b-instruct';
 function generateTenantId(name) {
     return `tenant_${name.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}`;
 }
