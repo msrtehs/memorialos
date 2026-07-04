@@ -266,33 +266,50 @@ async function openRouterChat(messages: ChatMessage[]): Promise<string> {
   const key = openRouterApiKey.value();
   if (!key) throw new HttpsError('failed-precondition', 'OPENROUTER_API_KEY nao configurada');
 
-  try {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${key}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://msrtehs.github.io/memorialos',
-        'X-Title': 'MemorialOS',
-      },
-      body: JSON.stringify({ model: OPENROUTER_MODEL, messages }),
-    });
+  const maxAttempts = 3;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${key}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://msrtehs.github.io/memorialos',
+          'X-Title': 'MemorialOS',
+        },
+        body: JSON.stringify({ model: OPENROUTER_MODEL, messages }),
+      });
 
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error('OpenRouter error:', response.status, errText);
-      throw new HttpsError('internal', 'Erro ao gerar conteudo de IA.');
+      // 429 (rate limit) ou 5xx: tenta de novo com backoff curto
+      if ((response.status === 429 || response.status >= 500) && attempt < maxAttempts) {
+        await new Promise((r) => setTimeout(r, 1500 * attempt));
+        continue;
+      }
+
+      if (!response.ok) {
+        const errText = await response.text();
+        console.error('OpenRouter error:', response.status, errText);
+        if (response.status === 429) {
+          throw new HttpsError('resource-exhausted', 'Servico de IA sobrecarregado no momento. Tente novamente em instantes.');
+        }
+        throw new HttpsError('internal', 'Erro ao gerar conteudo de IA.');
+      }
+
+      const data = (await response.json()) as {
+        choices?: { message?: { content?: string } }[];
+      };
+      return data.choices?.[0]?.message?.content ?? '';
+    } catch (err) {
+      if (err instanceof HttpsError) throw err;
+      if (attempt < maxAttempts) {
+        await new Promise((r) => setTimeout(r, 1000 * attempt));
+        continue;
+      }
+      console.error('OpenRouter network error:', err);
+      throw new HttpsError('internal', 'Falha de conexao com o servico de IA.');
     }
-
-    const data = (await response.json()) as {
-      choices?: { message?: { content?: string } }[];
-    };
-    return data.choices?.[0]?.message?.content ?? '';
-  } catch (err) {
-    if (err instanceof HttpsError) throw err;
-    console.error('OpenRouter network error:', err);
-    throw new HttpsError('internal', 'Falha de conexao com o servico de IA.');
   }
+  throw new HttpsError('resource-exhausted', 'Servico de IA sobrecarregado. Tente novamente.');
 }
 
 // Generate obituary text
