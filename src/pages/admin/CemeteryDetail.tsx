@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Grid, Plus, Pencil, Trash2, Eye, X } from 'lucide-react';
+import toast from 'react-hot-toast';
 import {
   createSector, updateSector, deleteSector,
   getCemeteryPlots, getSectors, getPlots,
@@ -8,6 +9,8 @@ import {
   Sector, Plot,
 } from '@/services/cemeteryService';
 import { useAuth } from '@/contexts/AuthContext';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { reportError, reportLoadError } from '@/lib/errors';
 
 // --- Sector Form Modal ---
 function SectorModal({ sector, saving, onSave, onClose }: {
@@ -217,6 +220,9 @@ export default function CemeteryDetail() {
   const [expandedSector, setExpandedSector] = useState<string | null>(null);
   const [sectorPlots, setSectorPlots] = useState<Plot[]>([]);
   const [loadingPlots, setLoadingPlots] = useState(false);
+  const [pendingSectorDelete, setPendingSectorDelete] = useState<Sector | null>(null);
+  const [deletingSector, setDeletingSector] = useState(false);
+  const [pendingPlotDelete, setPendingPlotDelete] = useState<Plot | null>(null);
 
   const loadData = async () => {
     if (!id) return;
@@ -225,7 +231,7 @@ export default function CemeteryDetail() {
       setSectors(sectorData);
       setAllPlots(plotData);
     } catch (error) {
-      console.error('Erro ao carregar estrutura do cemiterio:', error);
+      reportLoadError('CemeteryDetail.load', error);
     }
   };
 
@@ -272,24 +278,28 @@ export default function CemeteryDetail() {
         });
       }
       setSectorModal({ open: false, sector: null });
+      toast.success('Setor salvo.');
       await loadData();
     } catch (error) {
-      console.error('Erro ao salvar setor:', error);
-      alert('Erro ao salvar setor.');
+      reportError('CemeteryDetail.saveSector', error);
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDeleteSector = async (sectorId: string) => {
-    if (!tenantId || !window.confirm('Excluir este setor? Os jazigos associados nao serao removidos automaticamente.')) return;
+  const confirmDeleteSector = async () => {
+    if (!tenantId || !pendingSectorDelete?.id) return;
+    setDeletingSector(true);
     try {
-      await deleteSector(tenantId, sectorId);
-      if (expandedSector === sectorId) setExpandedSector(null);
+      await deleteSector(tenantId, pendingSectorDelete.id);
+      if (expandedSector === pendingSectorDelete.id) setExpandedSector(null);
+      toast.success('Setor e jazigos disponíveis excluídos.');
       await loadData();
-    } catch (error) {
-      console.error('Erro ao excluir setor:', error);
-      alert('Erro ao excluir setor.');
+      setPendingSectorDelete(null);
+    } catch (error: any) {
+      toast.error(error?.message || 'Erro ao excluir setor.');
+    } finally {
+      setDeletingSector(false);
     }
   };
 
@@ -305,7 +315,7 @@ export default function CemeteryDetail() {
       const plots = await getPlots(sectorId);
       setSectorPlots(plots);
     } catch (error) {
-      console.error('Erro ao carregar tumulos:', error);
+      reportLoadError('CemeteryDetail.plots', error);
     } finally {
       setLoadingPlots(false);
     }
@@ -337,6 +347,7 @@ export default function CemeteryDetail() {
         });
       }
       setPlotModal({ open: false, plot: null, sectorId: '' });
+      toast.success('Túmulo salvo.');
       // Refresh
       if (expandedSector) {
         const plots = await getPlots(expandedSector);
@@ -344,24 +355,25 @@ export default function CemeteryDetail() {
       }
       await loadData();
     } catch (error) {
-      console.error('Erro ao salvar tumulo:', error);
-      alert('Erro ao salvar tumulo.');
+      reportError('CemeteryDetail.savePlot', error);
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDeletePlot = async (plotId: string) => {
-    if (!tenantId || !window.confirm('Excluir este tumulo?')) return;
+  const confirmDeletePlot = async () => {
+    if (!tenantId || !pendingPlotDelete?.id) return;
     try {
-      await deletePlot(tenantId, plotId);
+      await deletePlot(tenantId, pendingPlotDelete.id);
+      toast.success(`Túmulo ${pendingPlotDelete.code} excluído.`);
       if (expandedSector) {
-        const plots = await getPlots(expandedSector);
-        setSectorPlots(plots);
+        setSectorPlots(await getPlots(expandedSector));
       }
       await loadData();
     } catch (error) {
-      console.error('Erro ao excluir tumulo:', error);
+      reportError('CemeteryDetail.deletePlot', error);
+    } finally {
+      setPendingPlotDelete(null);
     }
   };
 
@@ -420,7 +432,7 @@ export default function CemeteryDetail() {
                       <button onClick={() => setSectorModal({ open: true, sector })} className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-full" title="Editar setor">
                         <Pencil size={18} />
                       </button>
-                      <button onClick={() => handleDeleteSector(sector.id!)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full" title="Excluir setor">
+                      <button onClick={() => setPendingSectorDelete(sector)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full" title="Excluir setor" aria-label={`Excluir setor ${sector.name}`}>
                         <Trash2 size={18} />
                       </button>
                     </div>
@@ -480,7 +492,7 @@ export default function CemeteryDetail() {
                                     <button onClick={() => setPlotModal({ open: true, plot, sectorId: sector.id! })} className="p-1 text-slate-400 hover:text-blue-500" title="Editar">
                                       <Pencil size={16} />
                                     </button>
-                                    <button onClick={() => handleDeletePlot(plot.id!)} className="p-1 text-slate-400 hover:text-red-500" title="Excluir">
+                                    <button onClick={() => setPendingPlotDelete(plot)} className="p-1 text-slate-400 hover:text-red-500" title="Excluir" aria-label={`Excluir túmulo ${plot.code}`}>
                                       <Trash2 size={16} />
                                     </button>
                                   </div>
@@ -520,6 +532,40 @@ export default function CemeteryDetail() {
           onClose={() => setPlotModal({ open: false, plot: null, sectorId: '' })}
         />
       )}
+
+      <ConfirmDialog
+        open={!!pendingSectorDelete}
+        danger
+        loading={deletingSector}
+        title="Excluir setor"
+        description={
+          <>
+            Todos os jazigos <em>disponíveis</em> de <strong>{pendingSectorDelete?.name}</strong> serão
+            excluídos junto. Jazigos ocupados ou reservados bloqueiam a exclusão. A ação não pode ser desfeita.
+          </>
+        }
+        confirmLabel="Excluir setor"
+        onConfirm={confirmDeleteSector}
+        onCancel={() => setPendingSectorDelete(null)}
+      />
+
+      <ConfirmDialog
+        open={!!pendingPlotDelete}
+        danger
+        title="Excluir túmulo"
+        description={
+          <>
+            Excluir o túmulo <strong>{pendingPlotDelete?.code}</strong>
+            {pendingPlotDelete?.occupantName ? (
+              <> — atenção: consta o ocupante <strong>{pendingPlotDelete.occupantName}</strong></>
+            ) : null}
+            ? Esta ação não pode ser desfeita.
+          </>
+        }
+        confirmLabel="Excluir túmulo"
+        onConfirm={confirmDeletePlot}
+        onCancel={() => setPendingPlotDelete(null)}
+      />
     </div>
   );
 }

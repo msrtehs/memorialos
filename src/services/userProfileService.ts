@@ -28,10 +28,39 @@ export async function getUserProfile(uid: string) {
   return snapshot.data() as UserProfile;
 }
 
-export async function uploadUserProfilePhoto(file: File) {
+// Lookup em lote (get pontual, nunca list) do solicitante de uma comunicação de óbito (W3-10).
+export interface RequesterInfo {
+  displayName: string | null;
+  phone: string | null;
+}
+
+const requesterCache = new Map<string, RequesterInfo>();
+
+export async function getRequesterInfo(uid: string): Promise<RequesterInfo> {
+  const cached = requesterCache.get(uid);
+  if (cached) return cached;
+  try {
+    const snap = await getDoc(doc(db, COLLECTION, uid));
+    const data = snap.exists() ? snap.data() : null;
+    const info: RequesterInfo = {
+      displayName: (data?.displayName as string) || null,
+      phone: (data?.phone as string) || null,
+    };
+    requesterCache.set(uid, info);
+    return info;
+  } catch {
+    // Perfil inexistente ou regra negando: degrada para anônimo
+    const info: RequesterInfo = { displayName: null, phone: null };
+    requesterCache.set(uid, info);
+    return info;
+  }
+}
+
+export async function uploadUserProfilePhoto(file: File, tenantId?: string | null) {
   if (!auth.currentUser) throw new Error('Usuario nao autenticado.');
   const storageRef = ref(storage, `photos/${auth.currentUser.uid}/profile_${Date.now()}_${file.name}`);
-  await uploadBytes(storageRef, file);
+  // Perfil do cidadão: grava tenantId no metadado se houver; senão o dono continua acessando (W2-2)
+  await uploadBytes(storageRef, file, tenantId ? { customMetadata: { tenantId } } : undefined);
   return getDownloadURL(storageRef);
 }
 
@@ -43,7 +72,7 @@ export async function saveUserProfile(
   let photoUrl = payload.photoUrl;
 
   if (options?.photoFile) {
-    photoUrl = await uploadUserProfilePhoto(options.photoFile);
+    photoUrl = await uploadUserProfilePhoto(options.photoFile, options?.tenantId ?? null);
   }
 
   const data: Partial<UserProfile> = {

@@ -14,14 +14,26 @@ const serviceAccount = require('./serviceAccountKey.json');
 
 initializeApp({ credential: cert(serviceAccount) });
 
-async function setSuperAdmin(email) {
-  const auth = getAuth();
-  const user = await auth.getUserByEmail(email);
-  await auth.setCustomUserClaims(user.uid, {
-    role: 'superadmin',
-    tenantId: null, // superadmin não pertence a um tenant específico
-  });
-  console.log(`Done: ${email} => superadmin`);
+const email = process.argv[2];
+const BLOCKED_EMAILS = ['admin@memorial.com', 'gestor@memorial.com']; // ex-backdoor: nunca promover
+
+if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+  console.error('Uso: node scripts/set-superadmin.cjs <email>');
+  process.exit(1);
+}
+if (BLOCKED_EMAILS.includes(email.toLowerCase())) {
+  console.error(`Recusado: ${email} é a conta do antigo backdoor demo. Crie uma conta nova.`);
+  process.exit(1);
 }
 
-setSuperAdmin('admin@memorial.com').then(() => process.exit(0));
+async function setSuperAdmin(targetEmail) {
+  const auth = getAuth();
+  const user = await auth.getUserByEmail(targetEmail);
+  await auth.setCustomUserClaims(user.uid, { role: 'superadmin', tenantId: null });
+  console.log(`Done: ${targetEmail} (uid ${user.uid}) => superadmin`);
+  console.log('Lembrete: o usuário precisa fazer logout/login para o novo claim valer.');
+}
+
+setSuperAdmin(email)
+  .then(() => process.exit(0))
+  .catch((err) => { console.error('Falha:', err.message); process.exit(1); });

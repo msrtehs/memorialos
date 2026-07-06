@@ -54,12 +54,12 @@ async function countMemoriaisSemAtualizacao(dias: number): Promise<{
   } catch { return { count: 0, exemplos: [] }; }
 }
 
-// ── Memoriais sem foto principal ─────────────────────────────
+// ── Memoriais sem foto principal (campo REAL: photoUrl) ─────
 async function countMemoriaisSemFoto(): Promise<number> {
   try {
     const snap = await db()
       .collection('deceaseds')
-      .where('photoURL', '==', null)
+      .where('photoUrl', '==', null)
       .count()
       .get();
     return snap.data().count;
@@ -67,11 +67,11 @@ async function countMemoriaisSemFoto(): Promise<number> {
     try {
       const snap2 = await db()
         .collection('deceaseds')
-        .where('photoURL', '==', '')
+        .where('photoUrl', '==', '')
         .count()
         .get();
       return snap2.data().count;
-    } catch { return 0; }
+    } catch { return -1; }
   }
 }
 
@@ -112,81 +112,22 @@ async function countJazigosSemManutencao(dias: number): Promise<{
   } catch { return { count: 0, exemplos: [] }; }
 }
 
-// ── Planos funerarios vencendo em N dias ─────────────────────
-async function countPlanosFunerariosVencendo(dias: number): Promise<{
+// ── Planos funerarios vencendo (coleção `funeral_plans` sem produtor → N/D) ──
+async function countPlanosFunerariosVencendo(_dias: number): Promise<{
   count: number;
   exemplos: { id: string; titular: string; vencimentoEm: string }[];
 }> {
-  const agora = new Date();
-  const futuro = new Date(Date.now() + dias * 24 * 60 * 60 * 1000);
-  try {
-    const snap = await db()
-      .collection('funeral_plans')
-      .where('status', '==', 'ativo')
-      .where('expiresAt', '>=', Timestamp.fromDate(agora))
-      .where('expiresAt', '<=', Timestamp.fromDate(futuro))
-      .orderBy('expiresAt', 'asc')
-      .limit(10)
-      .get();
-
-    const exemplos = snap.docs.map(d => {
-      const data = d.data();
-      return {
-        id: d.id,
-        titular: data.holderName ?? 'Desconhecido',
-        vencimentoEm: data.expiresAt?.toDate?.()?.toLocaleDateString('pt-BR') ?? '',
-      };
-    });
-
-    const totalSnap = await db()
-      .collection('funeral_plans')
-      .where('status', '==', 'ativo')
-      .where('expiresAt', '>=', Timestamp.fromDate(agora))
-      .where('expiresAt', '<=', Timestamp.fromDate(futuro))
-      .count()
-      .get();
-
-    return { count: totalSnap.data().count, exemplos };
-  } catch { return { count: 0, exemplos: [] }; }
+  return { count: -1, exemplos: [] }; // W4-1: sem fonte de dados
 }
 
-// ── Visitas aos memoriais hoje e na semana ───────────────────
+// ── Visitas aos memoriais (coleção `memorial_visits` sem produtor → N/D) ──
 async function countVisitas(): Promise<{ hoje: number; semana: number }> {
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
-  const startOfWeek = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-
-  try {
-    const [hojeSnap, semanaSnap] = await Promise.all([
-      db()
-        .collection('memorial_visits')
-        .where('visitedAt', '>=', Timestamp.fromDate(startOfDay))
-        .count()
-        .get(),
-      db()
-        .collection('memorial_visits')
-        .where('visitedAt', '>=', Timestamp.fromDate(startOfWeek))
-        .count()
-        .get(),
-    ]);
-    return {
-      hoje: hojeSnap.data().count,
-      semana: semanaSnap.data().count,
-    };
-  } catch { return { hoje: 0, semana: 0 }; }
+  return { hoje: -1, semana: -1 };
 }
 
-// ── Fotos adicionadas nos ultimos 7 dias ─────────────────────
+// ── Fotos adicionadas (coleção `memorial_photos` sem produtor → N/D) ──
 async function countFotosAdicionadas7d(): Promise<number> {
-  const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-  try {
-    const snap = await db()
-      .collection('memorial_photos')
-      .where('addedAt', '>=', Timestamp.fromDate(since))
-      .count()
-      .get();
-    return snap.data().count;
-  } catch { return 0; }
+  return -1;
 }
 
 // ── Gera alertas de memorial ─────────────────────────────────

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import { AlertTriangle, CheckCircle, ClipboardList, Package, Plus } from 'lucide-react';
+import { reportError, reportLoadError } from '@/lib/errors';
+import { AlertTriangle, CheckCircle, ClipboardList, Package, Plus, ArrowDownCircle, ArrowUpCircle } from 'lucide-react';
 import { useAdmin } from '@/contexts/AdminContext';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -8,6 +9,9 @@ import {
   createStockItem,
   listOperationalRecords,
   listStockItems,
+  moveStock,
+  listStockMovements,
+  StockMovement,
   updateSCIRecord
 } from '@/services/sciService';
 
@@ -39,6 +43,11 @@ export default function MaintenancePage() {
     unit: ''
   });
 
+  const [movements, setMovements] = useState<StockMovement[]>([]);
+  const [moveModal, setMoveModal] = useState<{ item: any; kind: 'in' | 'out' } | null>(null);
+  const [moveForm, setMoveForm] = useState({ quantity: '', reason: '' });
+  const [moving, setMoving] = useState(false);
+
   const scopedMaintenanceRecords = useMemo(
     () =>
       maintenanceRecords.filter(
@@ -61,16 +70,44 @@ export default function MaintenancePage() {
     if (!tenantId) return;
     setLoading(true);
     try {
-      const [records, stock] = await Promise.all([
+      const [records, stock, moves] = await Promise.all([
         listOperationalRecords(tenantId),
-        listStockItems(tenantId)
+        listStockItems(tenantId),
+        listStockMovements(tenantId)
       ]);
       setMaintenanceRecords(records);
       setStockItems(stock);
+      setMovements(moves);
     } catch (error) {
-      console.error('Erro ao carregar manutencao:', error);
+      reportLoadError('MaintenancePage.load', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const openMove = (item: any, kind: 'in' | 'out') => {
+    setMoveModal({ item, kind });
+    setMoveForm({ quantity: '', reason: '' });
+  };
+
+  const handleMoveSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!tenantId || !moveModal) return;
+    const qty = Number(moveForm.quantity);
+    if (!qty || qty <= 0) {
+      toast.error('Informe uma quantidade maior que zero.');
+      return;
+    }
+    setMoving(true);
+    try {
+      await moveStock(tenantId, moveModal.item.id, moveModal.kind, qty, moveForm.reason || undefined);
+      toast.success(moveModal.kind === 'in' ? 'Entrada registrada.' : 'Baixa registrada.');
+      setMoveModal(null);
+      await loadData();
+    } catch (error) {
+      reportError('MaintenancePage.moveStock', error);
+    } finally {
+      setMoving(false);
     }
   };
 
@@ -267,7 +304,9 @@ export default function MaintenancePage() {
                   <th className="px-4 py-3">Item</th>
                   <th className="px-4 py-3">Categoria</th>
                   <th className="px-4 py-3">Quantidade</th>
+                  <th className="px-4 py-3">Mínimo</th>
                   <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3 text-right">Movimentar</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -278,19 +317,88 @@ export default function MaintenancePage() {
                       <td className="px-4 py-3 font-medium text-slate-900">{item.name}</td>
                       <td className="px-4 py-3 text-slate-600">{item.category}</td>
                       <td className="px-4 py-3 text-slate-700">{item.quantity} {item.unit}</td>
+                      <td className="px-4 py-3 text-slate-500">{item.minQuantity} {item.unit}</td>
                       <td className="px-4 py-3">
                         <span className={`px-2 py-1 rounded-full text-xs border ${critical ? 'bg-rose-100 text-rose-700 border-rose-200' : 'bg-emerald-100 text-emerald-700 border-emerald-200'}`}>
                           {critical ? 'Critico' : 'OK'}
                         </span>
                       </td>
+                      <td className="px-4 py-3">
+                        <div className="flex justify-end gap-2">
+                          <button onClick={() => openMove(item, 'in')} className="inline-flex items-center gap-1 text-xs text-emerald-700 hover:bg-emerald-50 border border-emerald-200 rounded px-2 py-1">
+                            <ArrowUpCircle size={14} /> Entrada
+                          </button>
+                          <button onClick={() => openMove(item, 'out')} className="inline-flex items-center gap-1 text-xs text-rose-700 hover:bg-rose-50 border border-rose-200 rounded px-2 py-1">
+                            <ArrowDownCircle size={14} /> Baixa
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   );
                 })}
                 {!loading && scopedStockItems.length === 0 && (
-                  <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-500">Nenhum item de estoque cadastrado.</td></tr>
+                  <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500">Nenhum item de estoque cadastrado.</td></tr>
                 )}
               </tbody>
             </table>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
+            <div className="px-4 py-3 border-b border-slate-200 text-sm font-semibold text-slate-700">Últimas movimentações</div>
+            <table className="w-full min-w-[600px] text-sm text-left">
+              <thead className="bg-slate-50 text-slate-700">
+                <tr>
+                  <th className="px-4 py-2">Item</th>
+                  <th className="px-4 py-2">Tipo</th>
+                  <th className="px-4 py-2">Qtd</th>
+                  <th className="px-4 py-2">Motivo</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {movements.slice(0, 20).map((m) => (
+                  <tr key={m.id}>
+                    <td className="px-4 py-2 text-slate-800">{m.itemName}</td>
+                    <td className="px-4 py-2">
+                      <span className={`text-xs font-medium ${m.kind === 'in' ? 'text-emerald-700' : 'text-rose-700'}`}>
+                        {m.kind === 'in' ? 'Entrada' : 'Baixa'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2 text-slate-700">{m.quantity}</td>
+                    <td className="px-4 py-2 text-slate-500">{m.reason || '—'}</td>
+                  </tr>
+                ))}
+                {movements.length === 0 && (
+                  <tr><td colSpan={4} className="px-4 py-6 text-center text-slate-500">Nenhuma movimentação registrada.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {moveModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white p-6 rounded-xl w-full max-w-sm">
+            <h2 className="text-lg font-bold mb-1">
+              {moveModal.kind === 'in' ? 'Entrada de estoque' : 'Baixa de estoque'}
+            </h2>
+            <p className="text-sm text-slate-500 mb-4">{moveModal.item.name} — atual: {moveModal.item.quantity} {moveModal.item.unit}</p>
+            <form onSubmit={handleMoveSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Quantidade</label>
+                <input type="number" min="1" value={moveForm.quantity} onChange={(e) => setMoveForm((p) => ({ ...p, quantity: e.target.value }))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" required />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Motivo (opcional)</label>
+                <input value={moveForm.reason} onChange={(e) => setMoveForm((p) => ({ ...p, reason: e.target.value }))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Ex: compra, consumo em manutenção" />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={() => setMoveModal(null)} className="px-4 py-2 text-slate-600">Cancelar</button>
+                <button type="submit" disabled={moving} className="px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-60">
+                  {moving ? 'Salvando...' : 'Confirmar'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

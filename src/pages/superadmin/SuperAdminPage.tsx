@@ -8,8 +8,11 @@ import {
 } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { signOut } from 'firebase/auth';
+import toast from 'react-hot-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { reportError, reportLoadError } from '@/lib/errors';
 import {
   createManagerAccount,
   toggleManagerStatus,
@@ -84,7 +87,13 @@ export default function SuperAdminPage() {
 
   // Add-user-to-tenant form state
   const [showAddUserForm, setShowAddUserForm] = useState(false);
-  const [addUserData, setAddUserData] = useState({ email: '', password: '' });
+  const [addUserData, setAddUserData] = useState<{ email: string; password: string; role: 'manager' | 'operator' }>({ email: '', password: '', role: 'manager' });
+  const [pendingAction, setPendingAction] = useState<
+    | { kind: 'deleteTenant'; managerUid: string; tenantId: string; name: string }
+    | { kind: 'deleteUser'; uid: string; email: string }
+    | null
+  >(null);
+  const [actionLoading, setActionLoading] = useState(false);
   const [addUserLoading, setAddUserLoading] = useState(false);
   const [addUserError, setAddUserError] = useState('');
 
@@ -103,7 +112,7 @@ export default function SuperAdminPage() {
       })) as Tenant[];
       setTenants(data);
     } catch (error) {
-      console.error('Erro ao carregar prefeituras:', error);
+      reportLoadError('SuperAdmin.tenants', error);
     } finally {
       setLoading(false);
     }
@@ -124,7 +133,7 @@ export default function SuperAdminPage() {
       })) as TenantUser[];
       setTenantUsers(data);
     } catch (error) {
-      console.error('Erro ao carregar usuários:', error);
+      reportLoadError('SuperAdmin.users', error);
     } finally {
       setLoadingUsers(false);
     }
@@ -156,34 +165,40 @@ export default function SuperAdminPage() {
     setTenantActionLoading(tenant.id);
     try {
       await toggleManagerStatus({ managerUid: tenant.managerUid, disabled: tenant.active });
+      toast.success(tenant.active ? 'Prefeitura desativada. Todos os logins bloqueados.' : 'Prefeitura reativada.');
       await loadTenants();
       // Refresh users if this tenant is expanded
       if (expandedTenantId === tenant.id) {
         await loadUsersForTenant(tenant.id);
       }
     } catch (error: any) {
-      console.error('Erro ao alterar status da prefeitura:', error);
+      reportError('SuperAdmin.toggleTenant', error);
     } finally {
       setTenantActionLoading(null);
     }
   };
 
-  const handleDeleteTenant = async (tenant: Tenant) => {
-    if (
-      !window.confirm(
-        `Excluir a prefeitura "${tenant.name}"?\n\nTodos os logins e dados do tenant serão removidos permanentemente.`,
-      )
-    )
-      return;
-    setTenantActionLoading(tenant.id);
+  const confirmPendingAction = async () => {
+    if (!pendingAction) return;
+    setActionLoading(true);
     try {
-      await deleteManagerAccount({ managerUid: tenant.managerUid, tenantId: tenant.id });
-      if (expandedTenantId === tenant.id) setExpandedTenantId(null);
-      await loadTenants();
-    } catch (error: any) {
-      console.error('Erro ao excluir prefeitura:', error);
+      if (pendingAction.kind === 'deleteTenant') {
+        await deleteManagerAccount({ managerUid: pendingAction.managerUid, tenantId: pendingAction.tenantId });
+        if (expandedTenantId === pendingAction.tenantId) setExpandedTenantId(null);
+        toast.success('Prefeitura e dados operacionais removidos.');
+        setPendingAction(null);
+        await loadTenants();
+      } else {
+        await deleteTenantUser({ uid: pendingAction.uid });
+        toast.success(`Login ${pendingAction.email} removido.`);
+        const expanded = expandedTenantId;
+        setPendingAction(null);
+        if (expanded) await loadUsersForTenant(expanded);
+      }
+    } catch (error) {
+      reportError('SuperAdmin.delete', error);
     } finally {
-      setTenantActionLoading(null);
+      setActionLoading(false);
     }
   };
 
@@ -193,12 +208,12 @@ export default function SuperAdminPage() {
     if (expandedTenantId === tenantId) {
       setExpandedTenantId(null);
       setShowAddUserForm(false);
-      setAddUserData({ email: '', password: '' });
+      setAddUserData({ email: '', password: '', role: 'manager' });
       setAddUserError('');
     } else {
       setExpandedTenantId(tenantId);
       setShowAddUserForm(false);
-      setAddUserData({ email: '', password: '' });
+      setAddUserData({ email: '', password: '', role: 'manager' });
       setAddUserError('');
       await loadUsersForTenant(tenantId);
     }
@@ -216,8 +231,9 @@ export default function SuperAdminPage() {
         tenantId: expandedTenantId,
         email: addUserData.email,
         password: addUserData.password,
+        role: addUserData.role,
       });
-      setAddUserData({ email: '', password: '' });
+      setAddUserData({ email: '', password: '', role: 'manager' });
       setShowAddUserForm(false);
       await loadUsersForTenant(expandedTenantId);
     } catch (error: any) {
@@ -231,25 +247,21 @@ export default function SuperAdminPage() {
     setUserActionLoading(u.id);
     try {
       await disableTenantUser({ uid: u.id, disabled: u.active });
+      toast.success(u.active ? 'Login bloqueado.' : 'Login reativado.');
       if (expandedTenantId) await loadUsersForTenant(expandedTenantId);
     } catch (error: any) {
-      console.error('Erro ao alterar status do usuário:', error);
+      reportError('SuperAdmin.toggleUser', error);
     } finally {
       setUserActionLoading(null);
     }
   };
 
-  const handleDeleteUser = async (u: TenantUser) => {
-    if (!window.confirm(`Excluir o login "${u.email}"?\n\nEsta ação não pode ser desfeita.`)) return;
-    setUserActionLoading(u.id);
-    try {
-      await deleteTenantUser({ uid: u.id });
-      if (expandedTenantId) await loadUsersForTenant(expandedTenantId);
-    } catch (error: any) {
-      console.error('Erro ao excluir usuário:', error);
-    } finally {
-      setUserActionLoading(null);
-    }
+  const handleDeleteUser = (u: TenantUser) => {
+    setPendingAction({ kind: 'deleteUser', uid: u.id, email: u.email });
+  };
+
+  const handleDeleteTenant = (tenant: Tenant) => {
+    setPendingAction({ kind: 'deleteTenant', managerUid: tenant.managerUid, tenantId: tenant.id, name: tenant.name });
   };
 
   // ─── Logout ─────────────────────────────────────────────────────────────────
@@ -494,7 +506,7 @@ export default function SuperAdminPage() {
                           onClick={() => {
                             setShowAddUserForm(!showAddUserForm);
                             setAddUserError('');
-                            setAddUserData({ email: '', password: '' });
+                            setAddUserData({ email: '', password: '', role: 'manager' });
                           }}
                           className="flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors"
                         >
@@ -552,6 +564,22 @@ export default function SuperAdminPage() {
                                   minLength={6}
                                   required
                                 />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-slate-600 mb-1">
+                                  Papel
+                                </label>
+                                <select
+                                  value={addUserData.role}
+                                  onChange={(e) =>
+                                    setAddUserData((p) => ({ ...p, role: e.target.value as 'manager' | 'operator' }))
+                                  }
+                                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                                  aria-label="Papel do usuário"
+                                >
+                                  <option value="manager">Gestor (acesso total do tenant)</option>
+                                  <option value="operator">Operador (execução em campo)</option>
+                                </select>
                               </div>
                             </div>
                             {addUserError && (
@@ -655,6 +683,28 @@ export default function SuperAdminPage() {
           )}
         </div>
       </main>
+
+      <ConfirmDialog
+        open={!!pendingAction}
+        danger
+        loading={actionLoading}
+        title={pendingAction?.kind === 'deleteTenant' ? 'Excluir prefeitura' : 'Excluir login'}
+        description={
+          pendingAction?.kind === 'deleteTenant' ? (
+            <>
+              Remove <strong>{pendingAction.name}</strong>: todos os logins e TODOS os dados
+              operacionais (cemitérios, jazigos, falecidos, registros SCI). A trilha de
+              auditoria é preservada. Esta ação é irreversível.
+            </>
+          ) : (
+            <>Remove o login <strong>{pendingAction?.kind === 'deleteUser' ? pendingAction.email : ''}</strong>. O usuário perde o acesso imediatamente.</>
+          )
+        }
+        confirmLabel="Excluir definitivamente"
+        requireText={pendingAction?.kind === 'deleteTenant' ? pendingAction.name : undefined}
+        onConfirm={confirmPendingAction}
+        onCancel={() => setPendingAction(null)}
+      />
     </div>
   );
 }

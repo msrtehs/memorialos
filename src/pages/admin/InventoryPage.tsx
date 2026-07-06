@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
+import { reportLoadError } from '@/lib/errors';
+import { deleteField } from 'firebase/firestore';
 import { Bot, Filter, Info, List, Map as MapIcon, Plus, Save, Search } from 'lucide-react';
 import { useAdmin } from '@/contexts/AdminContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -79,7 +81,7 @@ export default function InventoryPage() {
         setNewPlot((prev) => ({ ...prev, sectorId: sectorsData[0].id || '' }));
       }
     } catch (error) {
-      console.error('Erro ao carregar inventario:', error);
+      reportLoadError('InventoryPage.load', error);
     } finally {
       setLoading(false);
     }
@@ -155,8 +157,21 @@ export default function InventoryPage() {
     if (!tenantId) return;
     setSaving(true);
     try {
-      await updatePlot(plotId, tenantId, { status });
-      toast.success('Status do jazigo atualizado.');
+      const payload: Record<string, any> = { status };
+      if (status === 'available') {
+        // Liberar o jazigo limpa todos os vínculos de ocupação
+        payload.deceasedId = deleteField();
+        payload.occupantName = deleteField();
+        payload.burialDate = deleteField();
+        payload.exhumationDeadlineYears = deleteField();
+        payload.documentStatus = 'regular';
+      }
+      await updatePlot(plotId, tenantId, payload);
+      toast.success(
+        status === 'available'
+          ? 'Jazigo liberado. Vínculos de ocupação removidos.'
+          : 'Status do jazigo atualizado.'
+      );
       await loadData();
     } catch (error: any) {
       toast.error(error?.message || 'Erro ao atualizar status do jazigo.');

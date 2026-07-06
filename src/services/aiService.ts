@@ -9,7 +9,7 @@ export const generateObituary = async (data: any): Promise<string> => {
   } catch (error: any) {
     console.error('Error generating obituary:', error);
     if (error?.code === 'functions/failed-precondition') {
-      return 'Servico de IA indisponivel: chave Gemini nao configurada no servidor.';
+      return 'Serviço de IA indisponível no momento. Contate o suporte.';
     }
     throw error;
   }

@@ -55,11 +55,12 @@ const AdminHeader = () => {
 
   return (
     <header className="bg-white border-b border-slate-200 min-h-16 flex flex-col sm:flex-row sm:items-center sm:justify-between px-4 sm:px-8 py-3 sm:py-0 gap-3">
-      <h2 className="text-base sm:text-lg font-medium text-slate-700">Area Administrativa SCI</h2>
+      <h2 className="text-base sm:text-lg font-medium text-slate-700">Área Administrativa SCI</h2>
       <div className="flex items-center gap-4 w-full sm:w-auto">
         <select
           value={selectedCemeteryId}
           onChange={(event) => setSelectedCemeteryId(event.target.value)}
+          aria-label="Selecionar unidade (cemitério)"
           className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 w-full sm:w-auto"
         >
           <option value="all">Todas as unidades</option>
@@ -99,22 +100,22 @@ const AdminLayoutContent = () => {
       <nav className="flex-1 p-4 space-y-1 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
         <SidebarLink to="/admin/dashboard" icon={LayoutDashboard} label="Dashboard" onClick={onNavigate} />
         <SidebarLink to="/admin/operacional" icon={Workflow} label="Operacional" onClick={onNavigate} />
-        <SidebarLink to="/admin/inventario" icon={MapIcon} label="Inventario / Mapa" onClick={onNavigate} />
+        <SidebarLink to="/admin/inventario" icon={MapIcon} label="Inventário / Mapa" onClick={onNavigate} />
         <SidebarLink to="/admin/financeiro" icon={DollarSign} label="Financeiro" onClick={onNavigate} />
-        <SidebarLink to="/admin/manutencao" icon={Wrench} label="Manutencao" onClick={onNavigate} />
-        <SidebarLink to="/admin/seguranca" icon={ShieldCheck} label="Seguranca" onClick={onNavigate} />
+        <SidebarLink to="/admin/manutencao" icon={Wrench} label="Manutenção" onClick={onNavigate} />
+        <SidebarLink to="/admin/seguranca" icon={ShieldCheck} label="Segurança" onClick={onNavigate} />
         <SidebarLink to="/admin/agentes" icon={Bot} label="Agentes IA" onClick={onNavigate} />
-        <SidebarLink to="/admin/ambiental" icon={Leaf} label="Sanitario / Ambiental" onClick={onNavigate} />
-        <SidebarLink to="/admin/relatorios" icon={FileBarChart2} label="Relatorios" onClick={onNavigate} />
+        <SidebarLink to="/admin/ambiental" icon={Leaf} label="Sanitário / Ambiental" onClick={onNavigate} />
+        <SidebarLink to="/admin/relatorios" icon={FileBarChart2} label="Relatórios" onClick={onNavigate} />
         <SidebarLink to="/admin/documentos" icon={FileText} label="Documentos" onClick={onNavigate} />
         <SidebarLink to="/admin/suporte" icon={LifeBuoy} label="Suporte / Treino" onClick={onNavigate} />
-        <SidebarLink to="/admin/cemiterios" icon={Building2} label="Cemiterios" onClick={onNavigate} />
+        <SidebarLink to="/admin/cemiterios" icon={Building2} label="Cemitérios" onClick={onNavigate} />
         <SidebarLink to="/admin/parceiros" icon={Handshake} label="Parceiros" onClick={onNavigate} />
 
         <div className="pt-4 mt-4 border-t border-slate-800">
           <SidebarLink to="/admin/falecidos" icon={FileText} label="Falecidos" onClick={onNavigate} />
-          <SidebarLink to="/admin/obitos-comunicados" icon={FilePlus} label="Obitos Comunicados" onClick={onNavigate} />
-          <SidebarLink to="/admin/comunicar-obito" icon={FilePlus} label="Novo Obito (Admin)" onClick={onNavigate} />
+          <SidebarLink to="/admin/obitos-comunicados" icon={FilePlus} label="Óbitos Comunicados" onClick={onNavigate} />
+          <SidebarLink to="/admin/comunicar-obito" icon={FilePlus} label="Novo Óbito (Admin)" onClick={onNavigate} />
         </div>
       </nav>
 

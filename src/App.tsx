@@ -1,48 +1,51 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { Construction } from 'lucide-react';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
+import { ADMIN_ROUTE_ROLES } from '@/lib/roles';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
+// Estáticos (rota de entrada, leves — first paint):
 import PublicLayout from '@/layouts/PublicLayout';
-import AdminLayout from '@/layouts/AdminLayout';
-import UserLayout from '@/layouts/UserLayout';
-
 import LoginPage from '@/pages/auth/LoginPage';
 import RegisterPage from '@/pages/auth/RegisterPage';
 import UnauthorizedPage from '@/pages/auth/UnauthorizedPage';
-
-import AdminDashboard from '@/pages/admin/AdminDashboard';
-import DeceasedList from '@/pages/admin/DeceasedList';
-import DeceasedDetail from '@/pages/admin/DeceasedDetail';
-import DeceasedForm from '@/pages/admin/DeceasedForm';
-import CemeteryList from '@/pages/admin/CemeteryList';
-import CemeteryDetail from '@/pages/admin/CemeteryDetail';
-import InventoryPage from '@/pages/admin/InventoryPage';
-import FinancialPage from '@/pages/admin/FinancialPage';
-import MaintenancePage from '@/pages/admin/MaintenancePage';
-import SecurityPage from '@/pages/admin/SecurityPage';
-import PartnersPage from '@/pages/admin/PartnersPage';
-import EnvironmentalPage from '@/pages/admin/EnvironmentalPage';
-import AdminReportDeath from '@/pages/admin/AdminReportDeath';
-import CommunicatedDeaths from '@/pages/admin/CommunicatedDeaths';
-import OperationalPage from '@/pages/admin/OperationalPage';
-import ReportsPage from '@/pages/admin/ReportsPage';
-import AgentsPage from '@/pages/admin/AgentsPage';
-import DocumentsCenterPage from '@/pages/admin/DocumentsCenterPage';
-import SupportPage from '@/pages/admin/SupportPage';
-
-import SuperAdminPage from '@/pages/superadmin/SuperAdminPage';
-import MonitoringDashboard from '@/pages/superadmin/MonitoringDashboard';
 import LandingPage from '@/pages/public/LandingPage';
 import SearchPage from '@/pages/public/SearchPage';
-import GardenOfMemories from '@/pages/user/GardenOfMemories';
-import UserHomePage from '@/pages/user/UserHomePage';
-import ReportDeath from '@/pages/user/ReportDeath';
-import VirtualAssistant from '@/pages/user/VirtualAssistant';
-import ShopAndServices from '@/pages/user/ShopAndServices';
-import ProfilePage from '@/pages/user/ProfilePage';
+import MemorialPage from '@/pages/public/MemorialPage';
+
+// Lazy por área (W5-1) — chunks separados carregados sob demanda:
+const AdminLayout = lazy(() => import('@/layouts/AdminLayout'));
+const UserLayout = lazy(() => import('@/layouts/UserLayout'));
+const AdminDashboard = lazy(() => import('@/pages/admin/AdminDashboard'));
+const DeceasedList = lazy(() => import('@/pages/admin/DeceasedList'));
+const DeceasedDetail = lazy(() => import('@/pages/admin/DeceasedDetail'));
+const DeceasedForm = lazy(() => import('@/pages/admin/DeceasedForm'));
+const CemeteryList = lazy(() => import('@/pages/admin/CemeteryList'));
+const CemeteryDetail = lazy(() => import('@/pages/admin/CemeteryDetail'));
+const InventoryPage = lazy(() => import('@/pages/admin/InventoryPage'));
+const FinancialPage = lazy(() => import('@/pages/admin/FinancialPage'));
+const MaintenancePage = lazy(() => import('@/pages/admin/MaintenancePage'));
+const SecurityPage = lazy(() => import('@/pages/admin/SecurityPage'));
+const PartnersPage = lazy(() => import('@/pages/admin/PartnersPage'));
+const EnvironmentalPage = lazy(() => import('@/pages/admin/EnvironmentalPage'));
+const AdminReportDeath = lazy(() => import('@/pages/admin/AdminReportDeath'));
+const CommunicatedDeaths = lazy(() => import('@/pages/admin/CommunicatedDeaths'));
+const OperationalPage = lazy(() => import('@/pages/admin/OperationalPage'));
+const ReportsPage = lazy(() => import('@/pages/admin/ReportsPage'));
+const AgentsPage = lazy(() => import('@/pages/admin/AgentsPage'));
+const DocumentsCenterPage = lazy(() => import('@/pages/admin/DocumentsCenterPage'));
+const SupportPage = lazy(() => import('@/pages/admin/SupportPage'));
+const SuperAdminPage = lazy(() => import('@/pages/superadmin/SuperAdminPage'));
+const MonitoringDashboard = lazy(() => import('@/pages/superadmin/MonitoringDashboard'));
+const GardenOfMemories = lazy(() => import('@/pages/user/GardenOfMemories'));
+const UserHomePage = lazy(() => import('@/pages/user/UserHomePage'));
+const ReportDeath = lazy(() => import('@/pages/user/ReportDeath'));
+const VirtualAssistant = lazy(() => import('@/pages/user/VirtualAssistant'));
+const ShopAndServices = lazy(() => import('@/pages/user/ShopAndServices'));
+const ProfilePage = lazy(() => import('@/pages/user/ProfilePage'));
 
 const Placeholder = ({ title }: { title: string }) => (
   <div className="p-8">
@@ -85,13 +88,14 @@ const AppContent = () => {
 
   return (
     <BrowserRouter basename={normalizedBase}>
+      <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><LoadingSpinner text="Carregando módulo..." /></div>}>
       <Routes>
         <Route element={<PublicLayout />}>
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/cadastro" element={<RegisterPage />} />
           <Route path="/buscar" element={<SearchPage />} />
-          <Route path="/memorial/:id" element={<Placeholder title="Memorial" />} />
+          <Route path="/memorial/:id" element={<MemorialPage />} />
           <Route path="/servicos" element={<Placeholder title="Servicos Publicos" />} />
           <Route path="/minha-conta" element={<Navigate to="/app/inicio" replace />} />
         </Route>
@@ -108,7 +112,7 @@ const AppContent = () => {
           </Route>
         </Route>
 
-        <Route element={<ProtectedRoute allowedRoles={['gestor', 'manager', 'superadmin', 'operador']} />}>
+        <Route element={<ProtectedRoute allowedRoles={[...ADMIN_ROUTE_ROLES]} />}>
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<Navigate to="/admin/dashboard" replace />} />
             <Route path="dashboard" element={<AdminDashboard />} />
@@ -128,6 +132,7 @@ const AppContent = () => {
             <Route path="falecidos" element={<DeceasedList />} />
             <Route path="falecidos/novo" element={<DeceasedForm />} />
             <Route path="falecidos/:id" element={<DeceasedDetail />} />
+            <Route path="falecidos/:id/editar" element={<DeceasedForm />} />
             <Route path="obitos-comunicados" element={<CommunicatedDeaths />} />
             <Route path="comunicar-obito" element={<AdminReportDeath />} />
             <Route path="solicitacoes" element={<ComingSoon title="Central de Solicitações" />} />
@@ -144,6 +149,7 @@ const AppContent = () => {
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 };

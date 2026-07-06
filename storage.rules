@@ -3,7 +3,7 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // Helper Functions
+    // ── Helpers ────────────────────────────────────────────────────────────
     function isSignedIn() {
       return request.auth != null;
     }
@@ -17,13 +17,11 @@ service firebase.storage {
     }
 
     function isManager() {
-      return isSignedIn()
-        && (request.auth.token.role == 'manager' || request.auth.token.role == 'gestor');
+      return isSignedIn() && request.auth.token.role == 'manager';
     }
 
     function isOperator() {
-      return isSignedIn()
-        && (request.auth.token.role == 'operator' || request.auth.token.role == 'operador');
+      return isSignedIn() && request.auth.token.role == 'operator';
     }
 
     function isStaff() {
@@ -34,43 +32,74 @@ service firebase.storage {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Paths currently used by the app for uploads.
+    // Staff só acessa arquivos do PRÓPRIO tenant, identificado por metadado
+    // customizado gravado no upload: uploadBytes(ref, file, { customMetadata: { tenantId } }).
+    // Arquivos legados sem metadado: acessíveis pelo dono e pelo superadmin apenas
+    // (staff comum perde acesso até o backfill de metadados — trade-off aceito).
+    function staffOfFileTenant() {
+      return isStaff()
+        && resource.metadata != null
+        && resource.metadata.tenantId == request.auth.token.tenantId;
+    }
+
+    function writesWithOwnTenant() {
+      return isStaff()
+        && request.resource.metadata != null
+        && request.resource.metadata.tenantId == request.auth.token.tenantId;
+    }
+
+    // Limites de conteúdo: 10 MB, apenas PDF e imagens comuns.
+    function validDocument() {
+      return request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('application/pdf|image/(jpeg|png|webp|heic)');
+    }
+
+    function validImage() {
+      return request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp|heic)');
+    }
+
+    // ── Documentos anexados a comunicações de óbito e registros ───────────
     match /documents/{userId}/{fileName=**} {
-      allow read: if isOwner(userId) || isStaff();
-      allow write: if isOwner(userId) || isStaff();
+      allow read: if isOwner(userId) || staffOfFileTenant() || isSuperAdmin();
+      allow create, update: if (isOwner(userId) || writesWithOwnTenant()) && validDocument();
+      allow delete: if isOwner(userId) || staffOfFileTenant() || isSuperAdmin();
     }
 
+    // ── Fotos de falecidos e perfis ────────────────────────────────────────
     match /photos/{userId}/{fileName=**} {
-      allow read: if isOwner(userId) || isStaff();
-      allow write: if isOwner(userId) || isStaff();
+      allow read: if isOwner(userId) || staffOfFileTenant() || isSuperAdmin();
+      allow create, update: if (isOwner(userId) || writesWithOwnTenant()) && validImage();
+      allow delete: if isOwner(userId) || staffOfFileTenant() || isSuperAdmin();
     }
 
+    // ── Documentos institucionais (módulo Documentos/SCI) ─────────────────
     match /sci-documents/{userId}/{fileName=**} {
-      allow read: if isOwner(userId) || isStaff();
-      allow write: if isOwner(userId) || isStaff();
+      allow read: if isOwner(userId) || staffOfFileTenant() || isSuperAdmin();
+      allow create, update: if (isOwner(userId) || writesWithOwnTenant()) && validDocument();
+      allow delete: if isOwner(userId) || staffOfFileTenant() || isSuperAdmin();
     }
 
-    // Legacy/alternative path for memorial photos.
+    // ── Fotos de memoriais públicos ────────────────────────────────────────
     match /memorials/{memorialId}/photos/{fileName=**} {
-      allow read: if true; // fotos de memorial podem ser públicas
-      allow write: if isSignedIn() && isStaff(); // apenas staff pode gravar em memorials
+      allow read: if true; // memorial é público por design
+      allow write: if writesWithOwnTenant() && validImage();
     }
 
-    // Legacy/alternative tenant-organized documents.
+    // ── Path legado organizado por tenant ──────────────────────────────────
     match /tenants/{tenantId}/deceaseds/{deceasedId}/documents/{fileName=**} {
-      allow read: if isStaff();
-      allow write: if isStaff();
+      allow read: if (isStaff() && request.auth.token.tenantId == tenantId) || isSuperAdmin();
+      allow write: if isStaff() && request.auth.token.tenantId == tenantId && validDocument();
     }
 
-    // Request evidence files.
+    // ── Evidências de solicitações (feature futura — requests) ────────────
     match /tenants/{tenantId}/requests/{requestId}/{fileName=**} {
-      // Leitura: dono da request ou staff do tenant
       allow read: if isSignedIn()
-                  && (isStaff() && request.auth.token.tenantId == tenantId
-                      || request.auth.uid == requestId.split('_')[0]); // heurística — melhorar com metadata
-      // Escrita: apenas staff do tenant
+                  && ((isStaff() && request.auth.token.tenantId == tenantId)
+                      || request.auth.uid == requestId.split('_')[0]);
       allow write: if isSignedIn()
-                   && (isStaff() && request.auth.token.tenantId == tenantId);
+                   && (isStaff() && request.auth.token.tenantId == tenantId)
+                   && validDocument();
     }
   }
 }

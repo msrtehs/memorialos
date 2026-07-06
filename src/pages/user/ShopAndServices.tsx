@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ArrowRight, ShoppingBag, X, Plus, Minus, CreditCard } from 'lucide-react';
+import { ArrowRight, ShoppingBag, X, Plus, Minus, CreditCard, AlertTriangle } from 'lucide-react';
 
 type CatalogCategory = 'all' | 'lojas' | 'servicos' | 'setores';
 
@@ -157,15 +157,17 @@ export default function ShopAndServices() {
     );
   };
 
-  const finishCheckout = () => {
-    setCheckoutOpen(false);
-    setCartOpen(false);
-    setCart([]);
-    alert('Pedido registrado com sucesso. Em breve voce recebera os detalhes no seu contato.');
-  };
-
   return (
     <div className="space-y-8">
+      <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-4 text-sm flex items-start gap-2">
+        <AlertTriangle size={18} className="shrink-0 mt-0.5" />
+        <div>
+          <strong>Catálogo demonstrativo.</strong> Os produtos e serviços exibidos são exemplos —
+          pedidos e pagamentos ainda não estão disponíveis. Em caso de necessidade, contate
+          diretamente a administração do cemitério.
+        </div>
+      </div>
+
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-serif font-bold text-blue-900">Loja e Servicos</h1>
@@ -332,8 +334,12 @@ export default function ShopAndServices() {
               <button onClick={() => setCheckoutOpen(false)} className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50">
                 Voltar
               </button>
-              <button onClick={finishCheckout} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                Finalizar pedido
+              <button
+                disabled
+                title="Pedidos ainda não disponíveis nesta versão"
+                className="px-4 py-2 bg-slate-300 text-slate-500 rounded-lg cursor-not-allowed"
+              >
+                Finalizar pedido (em breve)
               </button>
             </div>
           </div>

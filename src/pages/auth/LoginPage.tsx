@@ -8,6 +8,7 @@ import { auth } from '@/lib/firebase';
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { Building2, CheckCircle } from 'lucide-react';
 import AppLogo from '@/components/AppLogo';
+import { getHomeForRole } from '@/lib/roles';
 
 const loginSchema = z.object({
   email: z.string().email('E-mail invalido'),
@@ -34,11 +35,15 @@ export default function LoginPage() {
       await sendPasswordResetEmail(auth, resetEmail.trim());
       setResetStatus('sent');
     } catch (error: any) {
-      setResetStatus('error');
       const code = error?.code || '';
-      if (code === 'auth/user-not-found' || code === 'auth/invalid-email') {
-        setResetError('E-mail nao encontrado.');
+      if (code === 'auth/user-not-found') {
+        // Mesma resposta de sucesso: não confirmar se o e-mail existe (anti-enumeração)
+        setResetStatus('sent');
+      } else if (code === 'auth/invalid-email') {
+        setResetStatus('error');
+        setResetError('Formato de e-mail inválido.');
       } else {
+        setResetStatus('error');
         setResetError('Erro ao enviar. Tente novamente.');
       }
     }
@@ -46,13 +51,7 @@ export default function LoginPage() {
 
   React.useEffect(() => {
     if (user && role) {
-      if (role === 'superadmin') {
-        navigate('/superadmin');
-      } else if (['gestor', 'manager', 'operador'].includes(role)) {
-        navigate('/admin/dashboard');
-      } else {
-        navigate('/app');
-      }
+      navigate(getHomeForRole(role));
     }
   }, [user, role, navigate]);
 
@@ -126,7 +125,7 @@ export default function LoginPage() {
               {resetStatus === 'sent' ? (
                 <div className="flex items-center gap-2 text-sm text-emerald-700">
                   <CheckCircle size={16} />
-                  <span>E-mail de recuperacao enviado para <strong>{resetEmail}</strong>. Verifique sua caixa de entrada.</span>
+                  <span>Se este e-mail estiver cadastrado, você receberá o link de recuperação em instantes.</span>
                 </div>
               ) : (
                 <form onSubmit={handleResetPassword} className="space-y-2">

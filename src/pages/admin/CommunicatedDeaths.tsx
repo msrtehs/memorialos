@@ -1,23 +1,24 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAdmin } from '@/contexts/AdminContext';
 import {
   getTenantNotifications,
   allocateNotification,
   rejectNotification,
   DeathNotification
 } from '@/services/notificationService';
-import { 
-  getCemeteries, 
-  getSectors, 
-  getPlots, 
-  Cemetery, 
-  Sector, 
-  Plot 
+import {
+  getSectors,
+  getPlots,
+  Sector,
+  Plot
 } from '@/services/cemeteryService';
 import { Check, Clock, MapPin, User, X, AlertCircle, FileText, Calendar } from 'lucide-react';
 import { parseISO, format } from 'date-fns';
 import toast from 'react-hot-toast';
 import { useModal } from '@/hooks/useModal';
+import { reportLoadError } from '@/lib/errors';
+import { getRequesterInfo, RequesterInfo } from '@/services/userProfileService';
 
 export default function CommunicatedDeaths() {
   const { tenantId } = useAuth();
@@ -28,8 +29,8 @@ export default function CommunicatedDeaths() {
   const [selectedNotification, setSelectedNotification] = useState<DeathNotification | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   
-  // Allocation Form State
-  const [cemeteries, setCemeteries] = useState<Cemetery[]>([]);
+  // Allocation Form State — cemitérios vêm do contexto (W5-7)
+  const { cemeteries } = useAdmin();
   const [sectors, setSectors] = useState<Sector[]>([]);
   const [plots, setPlots] = useState<Plot[]>([]);
   
@@ -37,13 +38,31 @@ export default function CommunicatedDeaths() {
   const [selectedSector, setSelectedSector] = useState('');
   const [selectedPlot, setSelectedPlot] = useState('');
   const [rejectionReason, setRejectionReason] = useState('');
+  const [burialDate, setBurialDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [actionType, setActionType] = useState<'allocate' | 'reject' | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { containerRef } = useModal(isModalOpen, () => setIsModalOpen(false));
 
+  const availablePlots = useMemo(
+    () => plots.filter((p) => p.status === 'available'),
+    [plots]
+  );
+
+  const [requesters, setRequesters] = useState<Record<string, RequesterInfo>>({});
+
   useEffect(() => {
     fetchNotifications();
   }, [tenantId]);
+
+  // Resolve nome/telefone do solicitante por get pontual (W3-10)
+  useEffect(() => {
+    const uids: string[] = Array.from(new Set(notifications.map((n) => n.createdBy).filter(Boolean)));
+    const missing = uids.filter((u) => !(u in requesters));
+    if (missing.length === 0) return;
+    Promise.all(missing.map(async (u) => [u, await getRequesterInfo(u)] as const)).then((pairs) => {
+      setRequesters((prev) => ({ ...prev, ...Object.fromEntries(pairs) }));
+    });
+  }, [notifications]);
 
   const fetchNotifications = async () => {
     if (!tenantId) return;
@@ -51,18 +70,11 @@ export default function CommunicatedDeaths() {
       const data = await getTenantNotifications(tenantId);
       setNotifications(data);
     } catch (error) {
-      console.error("Error fetching notifications:", error);
+      reportLoadError('CommunicatedDeaths.load', error);
     } finally {
       setLoading(false);
     }
   };
-
-  // Fetch cemeteries when opening allocation modal
-  useEffect(() => {
-    if (isModalOpen && actionType === 'allocate' && tenantId) {
-      getCemeteries(tenantId).then(setCemeteries);
-    }
-  }, [isModalOpen, actionType, tenantId]);
 
   // Fetch sectors when cemetery changes
   useEffect(() => {
@@ -90,6 +102,7 @@ export default function CommunicatedDeaths() {
     setSelectedSector('');
     setSelectedPlot('');
     setRejectionReason('');
+    setBurialDate(new Date().toISOString().split('T')[0]);
   };
 
   const handleConfirmAllocation = async () => {
@@ -101,23 +114,30 @@ export default function CommunicatedDeaths() {
         cemeteryId: selectedCemetery,
         sectorId: selectedSector,
         plotId: selectedPlot,
-        plotCode: plot?.code
+        plotCode: plot?.code,
+        burialDate,
       });
       toast.success('Sepultamento alocado com sucesso. Registro de falecido criado.');
       setIsModalOpen(false);
       await fetchNotifications();
     } catch (error: any) {
       toast.error(`Erro ao alocar: ${error.message}`);
+      if (error?.name === 'PlotUnavailableError' && selectedSector) {
+        // Recarrega os jazigos do setor para refletir a ocupação concorrente
+        const fresh = await getPlots(selectedSector);
+        setPlots(fresh);
+        setSelectedPlot('');
+      }
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleConfirmRejection = async () => {
-    if (!selectedNotification?.id || !rejectionReason) return;
+    if (!selectedNotification?.id || !rejectionReason || !tenantId) return;
     setIsSubmitting(true);
     try {
-      await rejectNotification(selectedNotification.id, rejectionReason);
+      await rejectNotification(selectedNotification.id, tenantId, rejectionReason);
       toast.success('Solicitação rejeitada.');
       setIsModalOpen(false);
       await fetchNotifications();
@@ -192,7 +212,16 @@ export default function CommunicatedDeaths() {
                     {notification.deceased.dateOfDeath && format(parseISO(notification.deceased.dateOfDeath), 'dd/MM/yyyy')}
                   </td>
                   <td className="px-6 py-4 text-xs">
-                    ID: {notification.createdBy.substring(0, 8)}...
+                    {requesters[notification.createdBy]?.displayName ? (
+                      <>
+                        <div className="text-slate-800 font-medium">{requesters[notification.createdBy].displayName}</div>
+                        {requesters[notification.createdBy].phone && (
+                          <div className="text-slate-500">{requesters[notification.createdBy].phone}</div>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-slate-400">Sem perfil — ID {notification.createdBy?.slice(0, 8)}…</span>
+                    )}
                     <br />
                     {notification.createdAt?.seconds && format(new Date(notification.createdAt.seconds * 1000), 'dd/MM/yy HH:mm')}
                   </td>
@@ -312,16 +341,29 @@ export default function CommunicatedDeaths() {
                         className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none disabled:bg-slate-100 disabled:text-slate-400"
                       >
                         <option value="">Selecione...</option>
-                        {plots.filter(p => p.status === 'available').map(p => (
+                        {availablePlots.map(p => (
                           <option key={p.id} value={p.id}>{p.code}</option>
                         ))}
                       </select>
                     </div>
                   </div>
-                  
-                  {plots.length === 0 && selectedSector && (
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Data do sepultamento</label>
+                    <input
+                      type="date"
+                      value={burialDate}
+                      min={new Date().toISOString().split('T')[0]}
+                      onChange={(e) => setBurialDate(e.target.value)}
+                      className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                    />
+                  </div>
+
+                  {availablePlots.length === 0 && selectedSector && (
                     <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
-                      Nenhum jazigo disponível neste setor. Cadastre novos jazigos em "Inventário".
+                      {plots.length > 0
+                        ? `Este setor tem ${plots.length} jazigo(s), mas nenhum disponível. Escolha outro setor ou libere um jazigo no Inventário.`
+                        : 'Nenhum jazigo cadastrado neste setor. Cadastre novos jazigos em "Inventário".'}
                     </p>
                   )}
                 </div>

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getMyNotifications, DeathNotification } from '@/services/notificationService';
+import { getMyNotifications, deleteNotification, DeathNotification } from '@/services/notificationService';
 import {
   Calendar,
   MapPin,
@@ -16,9 +16,9 @@ import {
 } from 'lucide-react';
 import { parseISO, format } from 'date-fns';
 import toast from 'react-hot-toast';
-import { deleteDoc, doc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
+import { isStaffRole } from '@/lib/roles';
+import { reportLoadError } from '@/lib/errors';
 
 function getStatusBadge(status: string) {
   switch (status) {
@@ -72,7 +72,7 @@ export default function GardenOfMemories() {
         const data = await getMyNotifications();
         setNotifications(data);
       } catch (error) {
-        console.error('Erro ao carregar jardim de memorias:', error);
+        reportLoadError('Garden.load', error);
       } finally {
         setLoading(false);
       }
@@ -81,8 +81,7 @@ export default function GardenOfMemories() {
   }, []);
 
   const canDeleteNotification = (notification: DeathNotification) => {
-    const isStaff = ['superadmin', 'manager', 'operator'].includes(role || '');
-    return isStaff || notification.status === 'rejected';
+    return isStaffRole(role) || notification.status === 'rejected';
   };
 
   const handleDelete = (event: React.MouseEvent, notification: DeathNotification) => {
@@ -99,7 +98,7 @@ export default function GardenOfMemories() {
     const notification = pendingDelete;
     if (!notification?.id) return;
     try {
-      await deleteDoc(doc(db, 'death_notifications', notification.id));
+      await deleteNotification(notification);
       setNotifications((prev) => prev.filter((item) => item.id !== notification.id));
       if (selectedNotification?.id === notification.id) {
         setSelectedNotification(null);

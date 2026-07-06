@@ -31,20 +31,26 @@ jobs:
         run: npm ci
 
       - name: Create .env For Build
+        # Config Firebase Web é público por natureza (protegido por rules + App Check),
+        # mas centralizamos em GitHub Variables para ter uma única fonte de verdade.
+        # NUNCA gravar secrets VITE_* aqui: tudo que entra no .env do Vite vai para o bundle.
         run: |
-          cat > .env <<'EOF'
-          VITE_GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
-          VITE_FIREBASE_API_KEY=AIzaSyDiKUnwst_k5JTdQG79PvQYkRdT5bCnnXQ
-          VITE_FIREBASE_AUTH_DOMAIN=memorialos.firebaseapp.com
-          VITE_FIREBASE_PROJECT_ID=memorialos
-          VITE_FIREBASE_STORAGE_BUCKET=memorialos.firebasestorage.app
-          VITE_FIREBASE_MESSAGING_SENDER_ID=320298917710
-          VITE_FIREBASE_APP_ID=1:320298917710:web:77e6995b581df66ec7081f
-          VITE_FIREBASE_MEASUREMENT_ID=G-4NMDQ9C2EF
+          cat > .env <<EOF
+          VITE_FIREBASE_API_KEY=${{ vars.FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN=${{ vars.FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID=${{ vars.FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET=${{ vars.FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID=${{ vars.FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID=${{ vars.FIREBASE_APP_ID }}
+          VITE_FIREBASE_MEASUREMENT_ID=${{ vars.FIREBASE_MEASUREMENT_ID }}
           EOF
 
-      - name: Build
-        run: npm run build
+      - name: Guard - Nenhum segredo no bundle
+        run: |
+          npm run build
+          if grep -rE "GEMINI|sk-or-v1" dist/assets/ ; then
+            echo "::error::Padrão de segredo encontrado no bundle gerado"; exit 1;
+          fi
 
       - name: Create SPA 404 Fallback
         run: cp dist/index.html dist/404.html

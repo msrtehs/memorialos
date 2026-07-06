@@ -3,9 +3,11 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Upload, Sparkles, ChevronRight, ChevronLeft, Check, FileText } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { generateObituary } from '@/services/aiService';
 import { createDeathNotification } from '@/services/notificationService';
 import { getAllCemeteries, getCemetery, Cemetery } from '@/services/cemeteryService';
+import { validateFile, ALLOWED_IMAGE_TYPES } from '@/lib/fileValidation';
 import { useNavigate } from 'react-router-dom';
 
 const step1Schema = z.object({
@@ -97,12 +99,51 @@ export default function ReportDeath() {
   const [docFiles, setDocFiles] = useState<File[]>([]);
   const [obituaryText, setObituaryText] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [cemeteries, setCemeteries] = useState<Cemetery[]>([]);
   const [selectedCemeteryId, setSelectedCemeteryId] = useState('');
 
   useEffect(() => {
     getAllCemeteries().then(setCemeteries);
   }, []);
+
+  const photoPreviewUrl = useMemo(
+    () => (photoFile ? URL.createObjectURL(photoFile) : null),
+    [photoFile]
+  );
+
+  useEffect(() => {
+    return () => {
+      if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl);
+    };
+  }, [photoPreviewUrl]);
+
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const error = validateFile(file, ALLOWED_IMAGE_TYPES);
+    if (error) {
+      toast.error(error);
+      e.target.value = '';
+      return;
+    }
+    setPhotoFile(file);
+  };
+
+  const handleDocsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []) as File[];
+    const valid: File[] = [];
+    for (const file of files) {
+      const error = validateFile(file); // default: PDF + imagens, máx. 10 MB
+      if (error) {
+        toast.error(`${file.name}: ${error}`);
+        continue;
+      }
+      valid.push(file);
+    }
+    setDocFiles((prev) => [...prev, ...valid]);
+    e.target.value = '';
+  };
 
   const form1 = useForm({ resolver: zodResolver(step1Schema) });
   const form3 = useForm({ resolver: zodResolver(step3Schema) });
@@ -130,32 +171,30 @@ export default function ReportDeath() {
       };
       const text = await generateObituary(currentData);
       setObituaryText(text);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      alert('Erro ao gerar obituario. Tente novamente.');
+      toast.error(error?.message || 'Erro ao gerar obituário. Tente novamente.');
     } finally {
       setIsGenerating(false);
     }
   };
 
   const handleFinalSubmit = async () => {
+    if (isSubmitting) return; // proteção extra contra corrida de eventos
+    if (!selectedCemeteryId) {
+      toast.error('Selecione um cemitério.');
+      return;
+    }
+    setIsSubmitting(true);
     try {
-      if (!selectedCemeteryId) {
-        alert('Selecione um cemiterio.');
-        return;
-      }
-
       const cemetery = await getCemetery(selectedCemeteryId);
       if (!cemetery || !cemetery.tenantId) {
-        alert('Erro ao identificar a prefeitura responsavel pelo cemiterio.');
+        toast.error('Erro ao identificar a prefeitura responsável pelo cemitério.');
         return;
       }
 
       const relationshipType = formData.relationshipType;
-      const relationshipLabel = getRelationshipLabel(
-        relationshipType,
-        formData.relationshipCustom
-      );
+      const relationshipLabel = getRelationshipLabel(relationshipType, formData.relationshipCustom);
 
       const finalData = {
         ...formData,
@@ -167,11 +206,13 @@ export default function ReportDeath() {
 
       await createDeathNotification(cemetery.tenantId, finalData, docFiles, photoFile || undefined);
 
-      alert('Obito comunicado com sucesso. Um gestor vai analisar sua solicitacao.');
+      toast.success('Óbito comunicado com sucesso. Um gestor vai analisar sua solicitação.');
       navigate('/app/memorias');
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      alert('Erro ao salvar. Verifique os dados e tente novamente.');
+      toast.error(error?.message || 'Erro ao salvar. Verifique os dados e tente novamente.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -193,8 +234,8 @@ export default function ReportDeath() {
 
             <div className="flex justify-center">
               <div className="w-32 h-32 bg-blue-50 rounded-full flex items-center justify-center border-2 border-dashed border-blue-200 cursor-pointer relative overflow-hidden hover:bg-blue-100 transition-colors">
-                {photoFile ? (
-                  <img src={URL.createObjectURL(photoFile)} className="w-full h-full object-cover" />
+                {photoPreviewUrl ? (
+                  <img src={photoPreviewUrl} alt="Foto do ente querido" className="w-full h-full object-cover" />
                 ) : (
                   <div className="text-center p-2">
                     <Upload className="mx-auto text-blue-400 mb-1" size={24} />
@@ -204,7 +245,7 @@ export default function ReportDeath() {
                 <input
                   type="file"
                   accept="image/*"
-                  onChange={(e) => e.target.files && setPhotoFile(e.target.files[0])}
+                  onChange={handlePhotoChange}
                   className="absolute inset-0 opacity-0 cursor-pointer"
                 />
               </div>
@@ -352,7 +393,7 @@ export default function ReportDeath() {
               <input
                 type="file"
                 multiple
-                onChange={(e) => e.target.files && setDocFiles(Array.from(e.target.files))}
+                onChange={handleDocsChange}
                 className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200"
               />
               <p className="text-xs text-slate-500 mt-1">Formatos aceitos: PDF, JPG, PNG.</p>
@@ -437,8 +478,8 @@ export default function ReportDeath() {
 
             <div className="bg-blue-50 rounded-xl p-6 space-y-4 text-sm text-slate-700">
               <div className="flex gap-4">
-                {photoFile && (
-                  <img src={URL.createObjectURL(photoFile)} className="w-16 h-16 rounded-full object-cover" />
+                {photoPreviewUrl && (
+                  <img src={photoPreviewUrl} alt="Foto do ente querido" className="w-16 h-16 rounded-full object-cover" />
                 )}
                 <div>
                   <p className="font-bold text-lg text-blue-900">{formData.name}</p>
@@ -473,8 +514,8 @@ export default function ReportDeath() {
               <button onClick={handleBack} className="px-4 py-2 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50 inline-flex items-center gap-2">
                 <ChevronLeft size={18} /> Voltar
               </button>
-              <button onClick={handleFinalSubmit} className="bg-green-600 text-white px-6 py-2.5 rounded-xl font-medium hover:bg-green-700 inline-flex items-center gap-2">
-                Comunicar obito <Check size={18} />
+              <button onClick={handleFinalSubmit} disabled={isSubmitting} className="bg-green-600 text-white px-6 py-2.5 rounded-xl font-medium hover:bg-green-700 disabled:opacity-60 inline-flex items-center gap-2">
+                {isSubmitting ? 'Enviando...' : <>Comunicar óbito <Check size={18} /></>}
               </button>
             </div>
           </div>

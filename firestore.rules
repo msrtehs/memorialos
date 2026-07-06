@@ -18,18 +18,39 @@ service cloud.firestore {
 
     function isManager(tenantId) {
       return isSignedIn()
-        && (request.auth.token.role == 'manager' || request.auth.token.role == 'gestor')
+        && request.auth.token.role == 'manager'
         && request.auth.token.tenantId == tenantId;
     }
 
     function isOperator(tenantId) {
       return isSignedIn()
-        && (request.auth.token.role == 'operator' || request.auth.token.role == 'operador')
+        && request.auth.token.role == 'operator'
         && request.auth.token.tenantId == tenantId;
     }
 
     function isStaff(tenantId) {
       return isSuperAdmin() || isManager(tenantId) || isOperator(tenantId);
+    }
+
+    // 'all' é um valor de FILTRO da UI, nunca um valor persistível (W1-7).
+    function hasValidCemeteryId() {
+      return !('cemeteryId' in request.resource.data)
+             || request.resource.data.cemeteryId != 'all';
+    }
+
+    // Validação mínima de schema (W2-5) nas coleções mais consumidas por agregadores.
+    function validPlotSchema() {
+      return request.resource.data.status in ['available', 'occupied', 'reserved', 'blocked']
+        && request.resource.data.tenantId is string
+        && request.resource.data.cemeteryId is string
+        && request.resource.data.cemeteryId != 'all';
+    }
+
+    function validFinancialSchema() {
+      return request.resource.data.value is number
+        && request.resource.data.value >= 0
+        && request.resource.data.category in ['income', 'expense']
+        && request.resource.data.cemeteryId != 'all';
     }
 
     // Tenants
@@ -66,8 +87,9 @@ service cloud.firestore {
       allow read: if isSignedIn()
                   && (isStaff(resource.data.tenantId)
                       || resource.data.status == 'available'); // mapa público só mostra disponíveis
-      allow create: if isStaff(request.resource.data.tenantId);
-      allow update, delete: if isStaff(resource.data.tenantId);
+      allow create: if isStaff(request.resource.data.tenantId) && validPlotSchema();
+      allow update: if isStaff(resource.data.tenantId) && validPlotSchema();
+      allow delete: if isStaff(resource.data.tenantId);
     }
 
     // Plot concessions (ownership history)
@@ -77,12 +99,11 @@ service cloud.firestore {
       allow update, delete: if isStaff(resource.data.tenantId);
     }
 
-    // Official deceased records
+    // Official deceased records — staff-only. A busca pública usa a projeção
+    // public_deceaseds. Acesso da família ao registro completo será modelado
+    // quando o conceito de "gestor familiar do memorial" existir de fato.
     match /deceaseds/{deceasedId} {
-      // Leitura pública apenas dos campos não-sensíveis — via documento público separado ou projeção.
-      // Até que uma coleção pública dedicada seja criada, acesso restrito a staff.
-      allow read: if isStaff(resource.data.tenantId)
-                  || (isSignedIn() && request.auth.uid in resource.data.managersUid);
+      allow read: if isStaff(resource.data.tenantId);
       allow create: if isStaff(request.resource.data.tenantId);
       allow update, delete: if isStaff(resource.data.tenantId);
     }
@@ -102,7 +123,11 @@ service cloud.firestore {
                     && request.resource.data.createdBy == request.auth.uid
                     && request.resource.data.status == 'submitted'
                     && !('allocation' in request.resource.data)
-                    && !('rejectionReason' in request.resource.data);
+                    && !('rejectionReason' in request.resource.data)
+                    // tenantId deve ser o dono do cemitério escolhido (anti-poluição cross-tenant)
+                    && request.resource.data.cemeteryId is string
+                    && request.resource.data.tenantId ==
+                       get(/databases/$(database)/documents/cemeteries/$(request.resource.data.cemeteryId)).data.tenantId;
 
       allow read: if isSignedIn()
                   && (
@@ -182,101 +207,139 @@ service cloud.firestore {
                     );
     }
 
-    // User profile for citizen area
+    // User profile for citizen area.
+    // get (doc único): dono, superadmin, ou staff — o staff precisa do contato de quem
+    //   comunicou um óbito ao seu tenant (LGPD art. 7º III — execução de serviço público).
+    // list (varredura): APENAS dono/superadmin — staff não pode enumerar cidadãos.
     match /user_profiles/{uid} {
-      allow read: if isSignedIn() && (request.auth.uid == uid || isSuperAdmin());
+      allow get: if isSignedIn()
+                 && (request.auth.uid == uid
+                     || isSuperAdmin()
+                     || request.auth.token.role in ['manager', 'operator']);
+      allow list: if isSignedIn() && (request.auth.uid == uid || isSuperAdmin());
       allow create, update: if isSignedIn() && request.auth.uid == uid;
       allow delete: if isSuperAdmin();
     }
 
-    // Manager profiles (created by Cloud Functions via Admin SDK)
+    // Manager profiles (created by Cloud Functions via Admin SDK).
+    // Manager lê os perfis do PRÓPRIO tenant (necessário para atribuir
+    // administrador responsável a um cemitério e, futuramente, gerir equipe).
     match /profiles/{userId} {
-      allow read: if isSuperAdmin() || request.auth.uid == userId;
+      allow read: if isSuperAdmin()
+                  || request.auth.uid == userId
+                  || isManager(resource.data.tenantId);
       allow write: if isSuperAdmin();
     }
 
     // SCI - Operational management
     match /sci_operational_records/{recordId} {
       allow read: if isSignedIn() && isStaff(resource.data.tenantId);
-      allow create: if isSignedIn() && isStaff(request.resource.data.tenantId);
-      allow update, delete: if isSignedIn() && isStaff(resource.data.tenantId);
+      allow create: if isSignedIn() && isStaff(request.resource.data.tenantId) && hasValidCemeteryId();
+      allow update: if isSignedIn() && isStaff(resource.data.tenantId) && hasValidCemeteryId();
+      allow delete: if isSignedIn() && isStaff(resource.data.tenantId);
     }
 
     // SCI - Occurrences
     match /sci_occurrences/{occurrenceId} {
       allow read: if isSignedIn() && isStaff(resource.data.tenantId);
-      allow create: if isSignedIn() && isStaff(request.resource.data.tenantId);
-      allow update, delete: if isSignedIn() && isStaff(resource.data.tenantId);
+      allow create: if isSignedIn() && isStaff(request.resource.data.tenantId) && hasValidCemeteryId();
+      allow update: if isSignedIn() && isStaff(resource.data.tenantId) && hasValidCemeteryId();
+      allow delete: if isSignedIn() && isStaff(resource.data.tenantId);
     }
 
     // SCI - Internal notifications
     match /sci_internal_notifications/{notificationId} {
       allow read: if isSignedIn() && isStaff(resource.data.tenantId);
-      allow create: if isSignedIn() && isStaff(request.resource.data.tenantId);
-      allow update, delete: if isSignedIn() && isStaff(resource.data.tenantId);
+      allow create: if isSignedIn() && isStaff(request.resource.data.tenantId) && hasValidCemeteryId();
+      allow update: if isSignedIn() && isStaff(resource.data.tenantId) && hasValidCemeteryId();
+      allow delete: if isSignedIn() && isStaff(resource.data.tenantId);
     }
 
     // SCI - Sanitary checks
     match /sci_sanitary_checks/{checkId} {
       allow read: if isSignedIn() && isStaff(resource.data.tenantId);
-      allow create: if isSignedIn() && isStaff(request.resource.data.tenantId);
-      allow update, delete: if isSignedIn() && isStaff(resource.data.tenantId);
+      allow create: if isSignedIn() && isStaff(request.resource.data.tenantId) && hasValidCemeteryId();
+      allow update: if isSignedIn() && isStaff(resource.data.tenantId) && hasValidCemeteryId();
+      allow delete: if isSignedIn() && isStaff(resource.data.tenantId);
     }
 
     // SCI - Environmental checks
     match /sci_environmental_checks/{checkId} {
       allow read: if isSignedIn() && isStaff(resource.data.tenantId);
-      allow create: if isSignedIn() && isStaff(request.resource.data.tenantId);
-      allow update, delete: if isSignedIn() && isStaff(resource.data.tenantId);
+      allow create: if isSignedIn() && isStaff(request.resource.data.tenantId) && hasValidCemeteryId();
+      allow update: if isSignedIn() && isStaff(resource.data.tenantId) && hasValidCemeteryId();
+      allow delete: if isSignedIn() && isStaff(resource.data.tenantId);
     }
 
     // SCI - Financial records
     match /sci_financial_records/{recordId} {
       allow read: if isSignedIn() && isStaff(resource.data.tenantId);
-      allow create: if isSignedIn() && isStaff(request.resource.data.tenantId);
-      allow update, delete: if isSignedIn() && isStaff(resource.data.tenantId);
+      allow create: if isSignedIn() && isStaff(request.resource.data.tenantId) && validFinancialSchema();
+      allow update: if isSignedIn() && isStaff(resource.data.tenantId) && validFinancialSchema();
+      allow delete: if isSignedIn() && isStaff(resource.data.tenantId);
     }
 
     // SCI - Stock items
     match /sci_stock_items/{itemId} {
       allow read: if isSignedIn() && isStaff(resource.data.tenantId);
-      allow create: if isSignedIn() && isStaff(request.resource.data.tenantId);
-      allow update, delete: if isSignedIn() && isStaff(resource.data.tenantId);
+      allow create: if isSignedIn() && isStaff(request.resource.data.tenantId) && hasValidCemeteryId();
+      allow update: if isSignedIn() && isStaff(resource.data.tenantId) && hasValidCemeteryId();
+      allow delete: if isSignedIn() && isStaff(resource.data.tenantId);
     }
 
     // SCI - Documents
     match /sci_documents/{documentId} {
       allow read: if isSignedIn() && isStaff(resource.data.tenantId);
-      allow create: if isSignedIn() && isStaff(request.resource.data.tenantId);
-      allow update, delete: if isSignedIn() && isStaff(resource.data.tenantId);
+      allow create: if isSignedIn() && isStaff(request.resource.data.tenantId) && hasValidCemeteryId();
+      allow update: if isSignedIn() && isStaff(resource.data.tenantId) && hasValidCemeteryId();
+      allow delete: if isSignedIn() && isStaff(resource.data.tenantId);
     }
 
     // SCI - AI agents and chatbots
     match /sci_ai_agents/{agentId} {
       allow read: if isSignedIn() && isStaff(resource.data.tenantId);
-      allow create: if isSignedIn() && isStaff(request.resource.data.tenantId);
-      allow update, delete: if isSignedIn() && isStaff(resource.data.tenantId);
+      allow create: if isSignedIn() && isStaff(request.resource.data.tenantId) && hasValidCemeteryId();
+      allow update: if isSignedIn() && isStaff(resource.data.tenantId) && hasValidCemeteryId();
+      allow delete: if isSignedIn() && isStaff(resource.data.tenantId);
     }
 
     // SCI - Generated reports
     match /sci_reports/{reportId} {
       allow read: if isSignedIn() && isStaff(resource.data.tenantId);
-      allow create: if isSignedIn() && isStaff(request.resource.data.tenantId);
-      allow update, delete: if isSignedIn() && isStaff(resource.data.tenantId);
+      allow create: if isSignedIn() && isStaff(request.resource.data.tenantId) && hasValidCemeteryId();
+      allow update: if isSignedIn() && isStaff(resource.data.tenantId) && hasValidCemeteryId();
+      allow delete: if isSignedIn() && isStaff(resource.data.tenantId);
     }
 
     // SCI - Support tickets
     match /sci_support_tickets/{ticketId} {
       allow read: if isSignedIn() && isStaff(resource.data.tenantId);
-      allow create: if isSignedIn() && isStaff(request.resource.data.tenantId);
-      allow update, delete: if isSignedIn() && isStaff(resource.data.tenantId);
+      allow create: if isSignedIn() && isStaff(request.resource.data.tenantId) && hasValidCemeteryId();
+      allow update: if isSignedIn() && isStaff(resource.data.tenantId) && hasValidCemeteryId();
+      allow delete: if isSignedIn() && isStaff(resource.data.tenantId);
     }
 
     // SCI - Training sessions
     match /sci_training_sessions/{sessionId} {
       allow read: if isSignedIn() && isStaff(resource.data.tenantId);
+      allow create: if isSignedIn() && isStaff(request.resource.data.tenantId) && hasValidCemeteryId();
+      allow update: if isSignedIn() && isStaff(resource.data.tenantId) && hasValidCemeteryId();
+      allow delete: if isSignedIn() && isStaff(resource.data.tenantId);
+    }
+
+    // SCI - Partners (parceiros credenciados) — W4-3
+    match /sci_partners/{partnerId} {
+      allow read: if isSignedIn() && isStaff(resource.data.tenantId);
+      allow create: if isSignedIn() && isStaff(request.resource.data.tenantId) && hasValidCemeteryId();
+      allow update: if isSignedIn() && isStaff(resource.data.tenantId) && hasValidCemeteryId();
+      allow delete: if isSignedIn() && isStaff(resource.data.tenantId);
+    }
+
+    // SCI - Stock movements (movimentações de estoque) — W4-8. Imutáveis (trilha).
+    match /sci_stock_movements/{movementId} {
+      allow read: if isSignedIn() && isStaff(resource.data.tenantId);
       allow create: if isSignedIn() && isStaff(request.resource.data.tenantId);
-      allow update, delete: if isSignedIn() && isStaff(resource.data.tenantId);
+      allow update, delete: if false;
     }
 
     // ─── Monitoring Agent Collections ─────────────────────────────────────────
@@ -304,6 +367,11 @@ service cloud.firestore {
     }
 
     match /_monitor/{doc} {
+      allow read, write: if false;
+    }
+
+    // Contadores de uso de IA por uid/dia — apenas Admin SDK (W2-8)
+    match /ai_usage/{docId} {
       allow read, write: if false;
     }
   }

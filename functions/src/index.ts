@@ -1,5 +1,6 @@
 import { onCall, HttpsError, onRequest } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
+import { onDocumentUpdated } from 'firebase-functions/v2/firestore';
 import { defineSecret } from 'firebase-functions/params';
 import { initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
@@ -9,7 +10,7 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { runTechnicalMonitor } from './monitoring/technicalMonitor';
 import { runOperationalMonitor } from './monitoring/operationalMonitor';
 import { runMemorialMonitor } from './monitoring/memorialMonitor';
-import { dispatchAlerts, sendDailyReport } from './monitoring/alertService';
+import { dispatchAlerts, sendDailyReport, sendWhatsAppMessage } from './monitoring/alertService';
 import {
   saveCurrentMetrics,
   saveHistoricalPoint,
@@ -91,14 +92,18 @@ export const addUserToTenant = onCall(async (request) => {
     throw new HttpsError('permission-denied', 'Acesso negado');
   }
 
-  const { tenantId, email, password } = request.data as {
+  const { tenantId, email, password, role = 'manager' } = request.data as {
     tenantId: string;
     email: string;
     password: string;
+    role?: 'manager' | 'operator';
   };
 
   if (!tenantId || !email || !password) {
     throw new HttpsError('invalid-argument', 'Dados inválidos');
+  }
+  if (!['manager', 'operator'].includes(role)) {
+    throw new HttpsError('invalid-argument', 'Papel inválido. Use manager ou operator.');
   }
 
   const auth = getAuth();
@@ -111,14 +116,11 @@ export const addUserToTenant = onCall(async (request) => {
 
   const user = await auth.createUser({ email, password });
 
-  await auth.setCustomUserClaims(user.uid, {
-    role: 'manager',
-    tenantId,
-  });
+  await auth.setCustomUserClaims(user.uid, { role, tenantId });
 
   await db.collection('profiles').doc(user.uid).set({
     email,
-    role: 'manager',
+    role,
     tenantId,
     active: true,
     createdAt: FieldValue.serverTimestamp(),
@@ -147,17 +149,29 @@ export const toggleManagerStatus = onCall(async (request) => {
   const auth = getAuth();
   const db = getFirestore();
 
-  await auth.updateUser(managerUid, { disabled });
-
   const profileSnap = await db.collection('profiles').doc(managerUid).get();
-  if (profileSnap.exists) {
-    const tenantId = profileSnap.data()?.tenantId as string | undefined;
-    if (tenantId) {
-      await db.collection('tenants').doc(tenantId).update({ active: !disabled });
-    }
+  const tenantId = profileSnap.exists ? (profileSnap.data()?.tenantId as string | undefined) : undefined;
+  if (!tenantId) {
+    throw new HttpsError('not-found', 'Perfil do gestor principal não encontrado.');
   }
 
-  return { success: true };
+  const tenantProfiles = await db.collection('profiles').where('tenantId', '==', tenantId).get();
+  await Promise.all(
+    tenantProfiles.docs.map(async (p) => {
+      try {
+        await auth.updateUser(p.id, { disabled });
+        // Corta sessões ativas imediatamente ao desativar
+        if (disabled) await auth.revokeRefreshTokens(p.id);
+        await p.ref.update({ active: !disabled });
+      } catch (err) {
+        console.error(`[toggleManagerStatus] falha em ${p.id}:`, err);
+      }
+    })
+  );
+
+  await db.collection('tenants').doc(tenantId).update({ active: !disabled });
+
+  return { success: true, affectedUsers: tenantProfiles.size };
 });
 
 // ─── disableTenantUser ────────────────────────────────────────────────────────
@@ -184,46 +198,71 @@ export const disableTenantUser = onCall(async (request) => {
 });
 
 // ─── deleteManagerAccount ─────────────────────────────────────────────────────
-// Removes the PRIMARY manager from Firebase Auth and deletes the associated
-// profile AND tenant documents. Use to delete an entire prefecture.
-export const deleteManagerAccount = onCall(async (request) => {
-  if (!request.auth || request.auth.token['role'] !== 'superadmin') {
-    throw new HttpsError('permission-denied', 'Acesso negado');
+// Removes the PRIMARY manager from Firebase Auth and deletes ALL operational data
+// of the tenant. audit_logs são preservados por retenção legal.
+const TENANT_DATA_COLLECTIONS = [
+  'cemeteries', 'sectors', 'plots', 'plot_concessions',
+  'deceaseds', 'public_deceaseds', 'death_notifications',
+  'sci_operational_records', 'sci_occurrences', 'sci_internal_notifications',
+  'sci_sanitary_checks', 'sci_environmental_checks', 'sci_financial_records',
+  'sci_stock_items', 'sci_documents', 'sci_ai_agents', 'sci_reports',
+  'sci_support_tickets', 'sci_training_sessions',
+  // audit_logs mantidos por retenção legal — decisão registrada (W1-12)
+];
+
+async function deleteTenantCollection(
+  db: FirebaseFirestore.Firestore,
+  col: string,
+  tenantId: string
+): Promise<number> {
+  let total = 0;
+  // Laço de páginas de 400 até esgotar
+  for (;;) {
+    const snap = await db.collection(col).where('tenantId', '==', tenantId).limit(400).get();
+    if (snap.empty) break;
+    const batch = db.batch();
+    snap.docs.forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+    total += snap.size;
+    if (snap.size < 400) break;
   }
+  return total;
+}
 
-  const { managerUid, tenantId } = request.data as {
-    managerUid: string;
-    tenantId: string;
-  };
-
-  if (!managerUid || !tenantId) {
-    throw new HttpsError('invalid-argument', 'Dados inválidos');
-  }
-
-  const auth = getAuth();
-  const db = getFirestore();
-
-  // Delete all profiles that belong to this tenant
-  const profilesSnap = await db
-    .collection('profiles')
-    .where('tenantId', '==', tenantId)
-    .get();
-
-  const deleteProfiles = profilesSnap.docs.map(async (doc) => {
-    try {
-      await auth.deleteUser(doc.id);
-    } catch (_) {
-      // User may already be deleted; continue
+export const deleteManagerAccount = onCall(
+  { timeoutSeconds: 540, memory: '512MiB' }, // cascade pode ser longa
+  async (request) => {
+    if (!request.auth || request.auth.token['role'] !== 'superadmin') {
+      throw new HttpsError('permission-denied', 'Acesso negado');
     }
-    await doc.ref.delete();
-  });
+    const { managerUid, tenantId } = request.data as { managerUid: string; tenantId: string };
+    if (!managerUid || !tenantId) throw new HttpsError('invalid-argument', 'Dados inválidos');
 
-  await Promise.all(deleteProfiles);
+    const auth = getAuth();
+    const db = getFirestore();
 
-  await db.collection('tenants').doc(tenantId).delete();
+    // 1. Dados operacionais do tenant
+    const deleted: Record<string, number> = {};
+    for (const col of TENANT_DATA_COLLECTIONS) {
+      deleted[col] = await deleteTenantCollection(db, col, tenantId);
+    }
 
-  return { success: true };
-});
+    // 2. Logins + profiles
+    const profilesSnap = await db.collection('profiles').where('tenantId', '==', tenantId).get();
+    await Promise.all(
+      profilesSnap.docs.map(async (doc) => {
+        try { await auth.deleteUser(doc.id); } catch (_) { /* já removido */ }
+        await doc.ref.delete();
+      })
+    );
+
+    // 3. Documento do tenant
+    await db.collection('tenants').doc(tenantId).delete();
+
+    console.log(`[deleteManagerAccount] tenant ${tenantId} removido:`, deleted);
+    return { success: true, deleted };
+  }
+);
 
 // ─── deleteTenantUser ─────────────────────────────────────────────────────────
 // Removes a SINGLE user from a tenant. Deletes only Auth user + profile.
@@ -312,9 +351,55 @@ async function openRouterChat(messages: ChatMessage[]): Promise<string> {
   throw new HttpsError('resource-exhausted', 'Servico de IA sobrecarregado. Tente novamente.');
 }
 
+// ─── Controle de acesso e custo de IA (W2-8) ─────────────────────────────────
+const STAFF_ROLES = ['superadmin', 'manager', 'operator'];
+const DAILY_AI_LIMITS: Record<string, number> = {
+  generateObituary: 20,       // cidadão gera poucas vezes por fluxo
+  chatWithAI: 100,            // assistente do cidadão
+  chatWithManagerAgent: 200,  // console do gestor
+};
+
+/** Incrementa o contador diário do uid em transação; lança resource-exhausted acima do teto. */
+async function enforceAiRateLimit(uid: string, fn: keyof typeof DAILY_AI_LIMITS): Promise<void> {
+  const db = getFirestore();
+  const day = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  const ref = db.collection('ai_usage').doc(`${uid}_${day}`);
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const current = (snap.exists ? (snap.data()?.[fn] as number) : 0) || 0;
+    if (current >= DAILY_AI_LIMITS[fn]) {
+      throw new HttpsError(
+        'resource-exhausted',
+        'Limite diário de uso de IA atingido. Tente novamente amanhã.'
+      );
+    }
+    tx.set(ref, { [fn]: current + 1, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+  });
+}
+
+/** Auditoria de chamada de IA (alimenta também o monitor técnico W4-1). */
+async function logAiCall(uid: string, role: string | undefined, fn: string): Promise<void> {
+  try {
+    await getFirestore().collection('audit_logs').add({
+      action: 'AI_CALL',
+      actorUid: uid,
+      userRole: role ?? 'citizen',
+      targetCollection: 'ai',
+      targetId: fn,
+      timestamp: FieldValue.serverTimestamp(),
+      tenantId: null,
+    });
+  } catch (err) {
+    console.error('[logAiCall] falha:', err);
+  }
+}
+
 // Generate obituary text
 export const generateObituary = onCall({ secrets: [openRouterApiKey] }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Login necessario');
+
+  await enforceAiRateLimit(request.auth.uid, 'generateObituary');
+  await logAiCall(request.auth.uid, request.auth.token['role'] as string | undefined, 'generateObituary');
 
   const data = request.data as Record<string, string>;
 
@@ -343,6 +428,9 @@ export const generateObituary = onCall({ secrets: [openRouterApiKey] }, async (r
 export const chatWithAI = onCall({ secrets: [openRouterApiKey] }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Login necessario');
 
+  await enforceAiRateLimit(request.auth.uid, 'chatWithAI');
+  await logAiCall(request.auth.uid, request.auth.token['role'] as string | undefined, 'chatWithAI');
+
   const { history, message, userContext } = request.data as {
     history: { role: string; parts: string }[];
     message: string;
@@ -370,6 +458,14 @@ Contexto emocional do usuario: ${userContext || 'Nao informado.'}`;
 // Chat with Manager Agent (admin AI agents)
 export const chatWithManagerAgent = onCall({ secrets: [openRouterApiKey] }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Login necessario');
+
+  const role = request.auth.token['role'] as string | undefined;
+  if (!role || !STAFF_ROLES.includes(role)) {
+    throw new HttpsError('permission-denied', 'Recurso disponível apenas para gestores.');
+  }
+
+  await enforceAiRateLimit(request.auth.uid, 'chatWithManagerAgent');
+  await logAiCall(request.auth.uid, role, 'chatWithManagerAgent');
 
   const { agent, history, message, contextSummary } = request.data as {
     agent: { name: string; objective: string; prompt: string; modules: string[] };
@@ -573,8 +669,12 @@ export const manualMonitorTrigger = onRequest(
   async (req, res) => {
     const authHeader = req.headers.authorization ?? '';
     const token = process.env.MONITOR_TRIGGER_TOKEN ?? '';
-    if (token && authHeader !== `Bearer ${token}`) {
-      res.status(401).json({ error: 'Nao autorizado' });
+    if (!token) {
+      res.status(503).json({ error: 'Trigger desabilitado: MONITOR_TRIGGER_TOKEN não configurado' });
+      return;
+    }
+    if (authHeader !== `Bearer ${token}`) {
+      res.status(401).json({ error: 'Não autorizado' });
       return;
     }
 
@@ -636,5 +736,45 @@ export const getMonitoringData = onCall(
     ]);
 
     return { current, history };
+  }
+);
+
+// ─── onDeathNotificationDecision (W4-11) ──────────────────────────────────────
+// Notifica a família via WhatsApp quando a comunicação de óbito é alocada/rejeitada.
+export const onDeathNotificationDecision = onDocumentUpdated(
+  { document: 'death_notifications/{notificationId}', region: 'us-central1' },
+  async (event) => {
+    const before = event.data?.before.data();
+    const after = event.data?.after.data();
+    if (!before || !after) return;
+    if (before.status === after.status) return;
+    if (!['allocated', 'rejected'].includes(after.status)) return;
+
+    // Telefone do solicitante no perfil do cidadão
+    const profileSnap = await getFirestore().collection('user_profiles').doc(after.createdBy).get();
+    const phone = profileSnap.exists ? (profileSnap.data()?.phone as string | undefined) : undefined;
+    if (!phone) {
+      console.log(`[notifyFamily] ${event.params.notificationId}: solicitante sem telefone — pulando`);
+      return;
+    }
+
+    const config = getMonitorConfig();
+    if (!config.whatsapp.enabled) return;
+
+    const name = after.deceased?.name ?? 'seu ente querido';
+    const message = after.status === 'allocated'
+      ? `MemorialOS: a solicitação de sepultamento de ${name} foi APROVADA. ` +
+        `Jazigo: ${after.allocation?.plotCode ?? 'a confirmar'}. ` +
+        `Acompanhe os detalhes no Jardim de Memórias do aplicativo.`
+      : `MemorialOS: a solicitação de sepultamento de ${name} não pôde ser aprovada. ` +
+        `Motivo: ${after.rejectionReason ?? 'entre em contato com a administração'}. ` +
+        `Você pode reenviar a solicitação com as correções pelo aplicativo.`;
+
+    try {
+      await sendWhatsAppMessage(phone, message, config);
+      console.log(`[notifyFamily] enviado para ${phone.slice(0, 6)}***`);
+    } catch (err) {
+      console.error('[notifyFamily] falha no envio:', err);
+    }
   }
 );

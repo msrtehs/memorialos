@@ -37,6 +37,10 @@ async function backfill() {
     for (const field of PUBLIC_FIELDS) {
       projection[field] = data[field] ?? null;
     }
+    // Campo derivado para busca pública por prefixo (W5-8)
+    if (typeof data.name === 'string') {
+      projection.nameLowercase = data.name.toLowerCase();
+    }
 
     batch.set(db.collection('public_deceaseds').doc(docSnap.id), projection, { merge: true });
     written++;

@@ -52,6 +52,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setTenantId(userTenantId);
         } catch (e) {
           console.error("Error fetching claims", e);
+          setError('Não foi possível carregar suas permissões. Recarregue a página.');
         }
       } else {
         setRole(null);

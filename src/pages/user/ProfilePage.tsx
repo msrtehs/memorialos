@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Camera, Save } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserProfile, saveUserProfile, UserProfile } from '@/services/userProfileService';
+import { validateFile, ALLOWED_IMAGE_TYPES } from '@/lib/fileValidation';
+import { reportError, reportLoadError } from '@/lib/errors';
 
 export default function ProfilePage() {
   const { user, tenantId } = useAuth();
@@ -47,7 +50,7 @@ export default function ProfilePage() {
           setPreviewUrl(user.photoURL || '');
         }
       } catch (error) {
-        console.error('Erro ao carregar perfil:', error);
+        reportLoadError('ProfilePage.load', error);
       } finally {
         setLoading(false);
       }
@@ -57,8 +60,16 @@ export default function ProfilePage() {
 
   const handlePhotoChange = (file?: File) => {
     if (!file) return;
+    const error = validateFile(file, ALLOWED_IMAGE_TYPES);
+    if (error) {
+      toast.error(error);
+      return;
+    }
     setPhotoFile(file);
-    setPreviewUrl(URL.createObjectURL(file));
+    setPreviewUrl((prev) => {
+      if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+      return URL.createObjectURL(file);
+    });
   };
 
   const handleSave = async (event: React.FormEvent) => {
@@ -74,10 +85,9 @@ export default function ProfilePage() {
         { photoFile: photoFile || undefined, tenantId }
       );
       setPhotoFile(null);
-      alert('Perfil atualizado com sucesso.');
+      toast.success('Perfil atualizado com sucesso.');
     } catch (error) {
-      console.error('Erro ao salvar perfil:', error);
-      alert('Nao foi possivel atualizar o perfil.');
+      reportError('ProfilePage.save', error);
     } finally {
       setSaving(false);
     }
@@ -145,6 +155,7 @@ export default function ProfilePage() {
               onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))}
               className="w-full border border-slate-300 rounded-lg px-3 py-2"
             />
+            <p className="text-xs text-slate-400 mt-1">Usado para avisos sobre suas solicitações (ex.: aprovação de sepultamento).</p>
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Cidade</label>

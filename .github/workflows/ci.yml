@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: ["main"]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Unit tests
+        run: npx vitest run --exclude tests/rules
+      - name: Rules tests (emulator)
+        run: npx firebase emulators:exec --only firestore "npx vitest run tests/rules"
+
+  deploy-rules:
+    # Rules/indexes versionados por CI: produção nunca diverge do repo
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - name: Deploy Firestore/Storage rules + indexes
+        run: npx firebase deploy --only firestore:rules,firestore:indexes,storage --project memorialos --token "${{ secrets.FIREBASE_DEPLOY_TOKEN }}"

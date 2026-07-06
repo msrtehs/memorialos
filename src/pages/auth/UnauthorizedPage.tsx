@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { ShieldOff } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { getHomeForRole } from '@/lib/roles';
 
 export default function UnauthorizedPage() {
   const { role } = useAuth();
@@ -19,7 +20,7 @@ export default function UnauthorizedPage() {
           </p>
         )}
         <Link
-          to="/app/inicio"
+          to={getHomeForRole(role)}
           className="inline-block bg-blue-600 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-blue-700 transition-colors"
         >
           Voltar ao início

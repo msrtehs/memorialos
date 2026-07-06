@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
+import { reportLoadError } from '@/lib/errors';
 import { BookOpenCheck, LifeBuoy, Plus } from 'lucide-react';
 import { useAdmin } from '@/contexts/AdminContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -19,6 +20,7 @@ export default function SupportPage() {
   const [tab, setTab] = useState<Tab>('support');
   const [tickets, setTickets] = useState<any[]>([]);
   const [sessions, setSessions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const [ticketForm, setTicketForm] = useState({
@@ -47,6 +49,7 @@ export default function SupportPage() {
 
   const loadData = async () => {
     if (!tenantId) return;
+    setLoading(true);
     try {
       const [ticketData, trainingData] = await Promise.all([
         listSupportTickets(tenantId),
@@ -55,7 +58,9 @@ export default function SupportPage() {
       setTickets(ticketData);
       setSessions(trainingData);
     } catch (error) {
-      console.error('Erro ao carregar suporte/treinamento:', error);
+      reportLoadError('SupportPage.load', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -188,7 +193,10 @@ export default function SupportPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {scopedTickets.map((ticket) => (
+                {loading && (
+                  <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-500">Carregando...</td></tr>
+                )}
+                {!loading && scopedTickets.map((ticket) => (
                   <tr key={ticket.id}>
                     <td className="px-4 py-3 font-medium text-slate-900">{ticket.title}</td>
                     <td className="px-4 py-3 text-slate-600">{ticket.category}</td>
@@ -202,7 +210,7 @@ export default function SupportPage() {
                     </td>
                   </tr>
                 ))}
-                {scopedTickets.length === 0 && (
+                {!loading && scopedTickets.length === 0 && (
                   <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-500">Nenhum chamado aberto.</td></tr>
                 )}
               </tbody>
@@ -239,7 +247,10 @@ export default function SupportPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {scopedSessions.map((session) => (
+                {loading && (
+                  <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-500">Carregando...</td></tr>
+                )}
+                {!loading && scopedSessions.map((session) => (
                   <tr key={session.id}>
                     <td className="px-4 py-3 font-medium text-slate-900">{session.title}</td>
                     <td className="px-4 py-3 text-slate-600">{session.date}</td>
@@ -253,7 +264,7 @@ export default function SupportPage() {
                     </td>
                   </tr>
                 ))}
-                {scopedSessions.length === 0 && (
+                {!loading && scopedSessions.length === 0 && (
                   <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-500">Nenhuma sessao de treinamento cadastrada.</td></tr>
                 )}
               </tbody>

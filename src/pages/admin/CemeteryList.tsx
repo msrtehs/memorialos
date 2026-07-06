@@ -9,6 +9,8 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import MapPicker from '@/components/MapPicker';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { StatCardSkeleton } from '@/components/ui/StatCardSkeleton';
 
 const schema = z.object({
   name: z.string().min(3, 'Nome obrigatorio'),
@@ -34,6 +36,9 @@ export default function CemeteryList() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCemetery, setEditingCemetery] = useState<Cemetery | null>(null);
   const [mapCoords, setMapCoords] = useState<{ lat: number; lng: number }>({ lat: 0, lng: 0 });
+  const [pendingDelete, setPendingDelete] = useState<Cemetery | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const {
     register,
@@ -48,12 +53,19 @@ export default function CemeteryList() {
 
   const fetchData = async () => {
     if (!tenantId) return;
-    const [data, profs] = await Promise.all([
-      getCemeteries(tenantId),
-      getTenantProfiles(tenantId).catch(() => [])
-    ]);
-    setCemeteries(data);
-    setProfiles(profs);
+    setLoading(true);
+    try {
+      const [data, profs] = await Promise.all([
+        getCemeteries(tenantId),
+        getTenantProfiles(tenantId),
+      ]);
+      setCemeteries(data);
+      setProfiles(profs);
+    } catch (error: any) {
+      toast.error(error?.message || 'Erro ao carregar cemitérios.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -116,16 +128,19 @@ export default function CemeteryList() {
     }
   };
 
-  const handleDelete = async (event: React.MouseEvent, cemeteryId: string) => {
-    event.preventDefault();
-    if (!tenantId) return;
+  const confirmDelete = async () => {
+    if (!tenantId || !pendingDelete?.id) return;
+    setDeleting(true);
     try {
-      await deleteCemetery(tenantId, cemeteryId);
+      await deleteCemetery(tenantId, pendingDelete.id);
       toast.success('Cemitério excluído.');
+      setPendingDelete(null);
       fetchData();
       await refreshCemeteries(); // remove a opção do dropdown imediatamente
     } catch (error: any) {
       toast.error(error?.message || 'Não foi possível excluir este cemitério.');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -149,6 +164,21 @@ export default function CemeteryList() {
         </button>
       </div>
 
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {Array.from({ length: 3 }).map((_, i) => <StatCardSkeleton key={i} />)}
+        </div>
+      ) : cemeteries.length === 0 ? (
+        <div className="bg-white border border-dashed border-slate-300 rounded-xl p-12 text-center">
+          <p className="text-slate-500 mb-4">Nenhum cemitério cadastrado ainda.</p>
+          <button
+            onClick={openCreateModal}
+            className="bg-slate-900 text-white px-4 py-2 rounded-lg inline-flex items-center gap-2 hover:bg-slate-800"
+          >
+            <Plus size={18} /> Criar o primeiro cemitério
+          </button>
+        </div>
+      ) : (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {cemeteries.map((cemetery) => (
           <div
@@ -164,9 +194,10 @@ export default function CemeteryList() {
                 <Pencil size={18} />
               </button>
               <button
-                onClick={(e) => handleDelete(e, cemetery.id!)}
+                onClick={(e) => { e.preventDefault(); setPendingDelete(cemetery); }}
                 className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
                 title="Excluir cemiterio"
+                aria-label={`Excluir cemitério ${cemetery.name}`}
               >
                 <Trash2 size={18} />
               </button>
@@ -217,6 +248,7 @@ export default function CemeteryList() {
           </div>
         ))}
       </div>
+      )}
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -286,6 +318,24 @@ export default function CemeteryList() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        danger
+        loading={deleting}
+        title="Excluir cemitério"
+        description={
+          <>
+            Esta ação exclui <strong>{pendingDelete?.name}</strong> e todos os seus setores e
+            jazigos <em>disponíveis</em>. Jazigos ocupados ou solicitações pendentes bloqueiam
+            a exclusão automaticamente. A ação não pode ser desfeita.
+          </>
+        }
+        confirmLabel="Excluir definitivamente"
+        requireText={pendingDelete?.name}
+        onConfirm={confirmDelete}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   );
 }

@@ -1,12 +1,7 @@
 import { z } from 'zod';
 
-export const dateRangeSchema = z.object({
-  dateOfBirth: z.string().min(1, 'Data de nascimento obrigatória'),
-  dateOfDeath: z.string().min(1, 'Data de falecimento obrigatória'),
-}).refine(
-  (data) => new Date(data.dateOfDeath) >= new Date(data.dateOfBirth),
-  { message: 'Data de falecimento deve ser posterior ao nascimento', path: ['dateOfDeath'] }
-);
+// dateRangeSchema removido (W4-12): era código morto — a coerência de datas do
+// DeceasedForm é coberta pelo zod local do próprio formulário.
 
 export const operationalRecordSchema = z.object({
   cemeteryId: z.string().min(1, 'Selecione um cemitério').refine(v => v !== 'all', 'Selecione uma unidade'),

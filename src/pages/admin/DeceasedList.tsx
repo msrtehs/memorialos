@@ -2,24 +2,38 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, Search, FileText, MoreHorizontal } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { getDeceasedList, deleteDeceased, Deceased } from '@/services/deceasedService';
+import {
+  getDeceasedPage,
+  searchDeceasedByName,
+  deleteDeceased,
+  Deceased,
+  DeceasedPage,
+} from '@/services/deceasedService';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAdmin } from '@/contexts/AdminContext';
 import { parseISO, format } from 'date-fns';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 export default function DeceasedList() {
   const { tenantId } = useAuth();
-  const [deceaseds, setDeceaseds] = useState<Deceased[]>([]);
+  const { cemeteries } = useAdmin();
+  const cemeteryName = (id?: string) => cemeteries.find((c) => c.id === id)?.name ?? id ?? 'Não definido';
+  const [page, setPage] = useState<DeceasedPage>({ items: [], cursor: null });
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [serverResults, setServerResults] = useState<Deceased[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Deceased | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const loadData = async () => {
     if (!tenantId) return;
     try {
-      const data = await getDeceasedList(tenantId);
-      setDeceaseds(data);
-    } catch (error) {
-      console.error("Error fetching deceased list:", error);
+      const first = await getDeceasedPage(tenantId);
+      setPage(first);
+    } catch (error: any) {
+      toast.error('Erro ao carregar a lista de falecidos.');
     } finally {
       setLoading(false);
     }
@@ -29,21 +43,51 @@ export default function DeceasedList() {
     loadData();
   }, [tenantId]);
 
-  const handleDelete = async (id: string) => {
-    if (!tenantId) return;
-    setOpenMenuId(null);
+  const loadMore = async () => {
+    if (!tenantId || !page.cursor) return;
+    setLoadingMore(true);
     try {
-      await deleteDeceased(id, tenantId);
-      toast.success('Registro excluído.');
-      await loadData();
-    } catch (error: any) {
-      toast.error(error?.message || 'Erro ao excluir registro.');
+      const next = await getDeceasedPage(tenantId, page.cursor);
+      setPage({ items: [...page.items, ...next.items], cursor: next.cursor });
+    } catch {
+      toast.error('Erro ao carregar mais registros.');
+    } finally {
+      setLoadingMore(false);
     }
   };
 
-  const filteredDeceaseds = deceaseds.filter(d =>
-    d.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Busca: com 3+ caracteres, consulta o servidor (debounce 400ms);
+  // com menos, mostra a página carregada.
+  useEffect(() => {
+    if (!tenantId) return;
+    const term = searchTerm.trim();
+    if (term.length < 3) { setServerResults(null); return; }
+    const t = setTimeout(async () => {
+      try {
+        setServerResults(await searchDeceasedByName(tenantId, term));
+      } catch {
+        toast.error('Erro na busca.');
+      }
+    }, 400);
+    return () => clearTimeout(t);
+  }, [searchTerm, tenantId]);
+
+  const confirmDelete = async () => {
+    if (!tenantId || !pendingDelete?.id) return;
+    setDeleting(true);
+    try {
+      await deleteDeceased(pendingDelete.id, tenantId);
+      toast.success('Registro excluído.');
+      setPendingDelete(null);
+      await loadData();
+    } catch (error: any) {
+      toast.error(error?.message || 'Erro ao excluir registro.');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const rows = serverResults ?? page.items;
 
   return (
     <div className="space-y-6">
@@ -90,10 +134,10 @@ export default function DeceasedList() {
           <tbody className="divide-y divide-slate-100">
             {loading ? (
               <tr><td colSpan={5} className="px-6 py-8 text-center text-slate-500">Carregando...</td></tr>
-            ) : filteredDeceaseds.length === 0 ? (
+            ) : rows.length === 0 ? (
               <tr><td colSpan={5} className="px-6 py-8 text-center text-slate-500">Nenhum registro encontrado.</td></tr>
             ) : (
-              filteredDeceaseds.map((person) => (
+              rows.map((person) => (
                 <tr key={person.id} className="hover:bg-slate-50 transition-colors">
                   <td className="px-6 py-4">
                     <div className="font-medium text-slate-900">{person.name}</div>
@@ -103,7 +147,7 @@ export default function DeceasedList() {
                     {person.dateOfDeath ? format(parseISO(person.dateOfDeath), 'dd/MM/yyyy') : '-'}
                   </td>
                   <td className="px-6 py-4 text-slate-600">
-                    {person.cemeteryId || 'Não definido'}
+                    {cemeteryName(person.cemeteryId)}
                     {person.plotId && <span className="block text-xs text-slate-400">Jazigo: {person.plotId}</span>}
                   </td>
                   <td className="px-6 py-4">
@@ -129,8 +173,14 @@ export default function DeceasedList() {
                           >
                             Ver detalhes
                           </Link>
+                          <Link
+                            to={`/admin/falecidos/${person.id}/editar`}
+                            className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                          >
+                            Editar
+                          </Link>
                           <button
-                            onClick={() => handleDelete(person.id!)}
+                            onClick={() => { setOpenMenuId(null); setPendingDelete(person); }}
                             className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
                           >
                             Excluir
@@ -144,7 +194,37 @@ export default function DeceasedList() {
             )}
           </tbody>
         </table>
+        {!serverResults && page.cursor && (
+          <div className="p-4 text-center border-t border-slate-100">
+            <button
+              onClick={loadMore}
+              disabled={loadingMore}
+              className="px-4 py-2 text-sm font-medium text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50"
+            >
+              {loadingMore ? 'Carregando...' : 'Carregar mais 50'}
+            </button>
+          </div>
+        )}
       </div>
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        danger
+        loading={deleting}
+        title="Excluir registro de falecido"
+        description={
+          <>
+            Excluir o registro de <strong>{pendingDelete?.name}</strong>
+            {pendingDelete?.documents?.length
+              ? <> (com {pendingDelete.documents.length} documento(s) anexado(s))</>
+              : null}?
+            O registro também sai da busca pública. Esta ação não pode ser desfeita.
+          </>
+        }
+        confirmLabel="Excluir registro"
+        onConfirm={confirmDelete}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   );
 }

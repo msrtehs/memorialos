@@ -44,37 +44,15 @@ async function checkFirestoreLatency(): Promise<number> {
   }
 }
 
-// ── Conta usuarios ativos nas ultimas 24h via Firestore ─────
+// ── Usuarios ativos: profiles.lastLoginAt nunca é gravado → sem fonte (N/D). ──
 async function countActiveUsers24h(): Promise<number> {
-  const db = getFirestore();
-  const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  try {
-    const snap = await db
-      .collection('profiles')
-      .where('lastLoginAt', '>=', Timestamp.fromDate(since))
-      .count()
-      .get();
-    return snap.data().count;
-  } catch {
-    return -1;
-  }
+  return -1; // W4-1: sem fonte de dados (nenhum lastLoginAt escrito)
 }
 
-// ── Conta tentativas de login com falha (ultimas 24h) ───────
+// ── Tentativas de login com falha: action LOGIN_FAILED nunca é gravada. ──
+//    Sem blocking function de auth, não há fonte → N/D (follow-up registrado).
 async function countFailedLogins24h(): Promise<number> {
-  const db = getFirestore();
-  const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  try {
-    const snap = await db
-      .collection('audit_logs')
-      .where('action', '==', 'LOGIN_FAILED')
-      .where('createdAt', '>=', Timestamp.fromDate(since))
-      .count()
-      .get();
-    return snap.data().count;
-  } catch {
-    return 0;
-  }
+  return -1; // sem fonte; UI exibe "N/D" (não zero, que significaria "nenhuma falha")
 }
 
 // ── Conta novos cadastros (ultimas 24h) ─────────────────────
@@ -109,7 +87,7 @@ async function countFunctionsErrors24h(): Promise<number> {
   }
 }
 
-// ── Conta chamadas a API Gemini hoje ────────────────────────
+// ── Conta chamadas de IA hoje (alimentada por W2-8: action AI_CALL, campo timestamp) ──
 async function countGeminiCallsToday(): Promise<number> {
   const db = getFirestore();
   const startOfDay = new Date();
@@ -117,13 +95,13 @@ async function countGeminiCallsToday(): Promise<number> {
   try {
     const snap = await db
       .collection('audit_logs')
-      .where('action', '==', 'GEMINI_API_CALL')
-      .where('createdAt', '>=', Timestamp.fromDate(startOfDay))
+      .where('action', '==', 'AI_CALL')
+      .where('timestamp', '>=', Timestamp.fromDate(startOfDay))
       .count()
       .get();
     return snap.data().count;
   } catch {
-    return 0;
+    return -1;
   }
 }
 

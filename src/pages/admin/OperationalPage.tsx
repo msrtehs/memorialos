@@ -1,12 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
+import { reportError, reportLoadError } from '@/lib/errors';
 import { BellRing, CalendarDays, ClipboardList, Clock, FileCheck2, Layers3, Plus, Shuffle, TriangleAlert, UserRoundCheck } from 'lucide-react';
 import { useAdmin } from '@/contexts/AdminContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { getCemeteryPlots, Plot } from '@/services/cemeteryService';
+import { operationalRecordSchema } from '@/lib/validationSchemas';
 import {
   createInternalNotification,
   createOccurrenceRecord,
   createOperationalRecord,
+  createExhumationOrderFromAlert,
   ExhumationAlert,
   getExhumationAlerts,
   listInternalNotifications,
@@ -15,6 +19,7 @@ import {
   updateSCIRecord
 } from '@/services/sciService';
 import { occurrenceStatusLabel, operationalStatusLabel, notificationStatusLabel } from '@/lib/statusLabels';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 type OperationalTab =
   | 'burial'
@@ -78,6 +83,12 @@ export default function OperationalPage() {
     slaDeadline: ''
   });
   const [exhumationAlerts, setExhumationAlerts] = useState<{ overdue: ExhumationAlert[]; approaching: ExhumationAlert[] } | null>(null);
+  const [availablePlots, setAvailablePlots] = useState<Plot[]>([]);
+  const [pendingExhumation, setPendingExhumation] = useState<ExhumationAlert | null>(null);
+  const [exhumationLoading, setExhumationLoading] = useState(false);
+
+  // Jazigos da unidade ativa para vincular ordens de sepultamento/exumação/manutenção (W4-12)
+  const plotTabs: OperationalTab[] = ['burial', 'exhumation', 'maintenance'];
 
   const loadData = async () => {
     if (!tenantId) return;
@@ -95,7 +106,7 @@ export default function OperationalPage() {
       setOccurrences(occurrenceData);
       setExhumationAlerts(alerts);
     } catch (error) {
-      console.error('Erro ao carregar gestao operacional:', error);
+      reportLoadError('OperationalPage.load', error);
     } finally {
       setLoading(false);
     }
@@ -104,6 +115,14 @@ export default function OperationalPage() {
   useEffect(() => {
     loadData();
   }, [tenantId, selectedCemeteryId]);
+
+  useEffect(() => {
+    if (selectedCemeteryId === 'all' || !plotTabs.includes(tab)) {
+      setAvailablePlots([]);
+      return;
+    }
+    getCemeteryPlots(selectedCemeteryId).then(setAvailablePlots).catch(() => setAvailablePlots([]));
+  }, [selectedCemeteryId, tab]);
 
   const scopedRecords = useMemo(
     () =>
@@ -133,24 +152,33 @@ export default function OperationalPage() {
 
   const handleCreateRecord = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!tenantId || !recordForm.title) return;
+    if (!tenantId) return;
     if (selectedCemeteryId === 'all') {
       toast.error('Selecione um cemitério específico antes de criar um registro.');
       return;
     }
+
+    const parsed = operationalRecordSchema.safeParse({
+      cemeteryId: selectedCemeteryId,
+      type: tab,                 // aba ativa = tipo do registro
+      title: recordForm.title,
+      priority: recordForm.priority,
+      status: 'planned',
+      scheduledFor: recordForm.scheduledFor || undefined,
+    });
+    if (!parsed.success) {
+      toast.error(parsed.error.issues[0]?.message || 'Dados inválidos.');
+      return;
+    }
+
     setSaving(true);
     try {
       await createOperationalRecord(tenantId, {
-        cemeteryId: selectedCemeteryId,
-        type: tab as any,
-        title: recordForm.title,
+        ...parsed.data,
         description: recordForm.description,
-        status: recordForm.status as any,
-        priority: recordForm.priority as any,
-        scheduledFor: recordForm.scheduledFor,
         responsible: recordForm.responsible,
-        plotId: recordForm.plotId
-      });
+        plotId: recordForm.plotId || null, // agora COM input (seletor abaixo)
+      } as any);
       toast.success('Registro criado com sucesso.');
       setRecordForm({
         title: '',
@@ -162,13 +190,25 @@ export default function OperationalPage() {
         plotId: ''
       });
       await loadData();
-    } catch (error: any) {
-      const msg = error?.code === 'permission-denied'
-        ? 'Sem permissão para esta operação.'
-        : error?.message || 'Erro ao salvar. Tente novamente.';
-      toast.error(msg);
+    } catch (error) {
+      reportError('Operational.create', error);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const confirmExhumationOrder = async () => {
+    if (!tenantId || !pendingExhumation) return;
+    setExhumationLoading(true);
+    try {
+      await createExhumationOrderFromAlert(tenantId, pendingExhumation);
+      toast.success('Ordem criada. Jazigo bloqueado.');
+      setPendingExhumation(null);
+      await loadData();
+    } catch (error) {
+      reportError('Operational.exhumationOrder', error);
+    } finally {
+      setExhumationLoading(false);
     }
   };
 
@@ -302,6 +342,19 @@ export default function OperationalPage() {
               <Plus size={14} /> Add
             </button>
           </div>
+          {plotTabs.includes(tab) && (
+            <select
+              value={recordForm.plotId}
+              onChange={(e) => setRecordForm((prev) => ({ ...prev, plotId: e.target.value }))}
+              disabled={selectedCemeteryId === 'all'}
+              className="md:col-span-7 border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white disabled:bg-slate-100"
+            >
+              <option value="">Jazigo relacionado (opcional)</option>
+              {availablePlots.map((p) => (
+                <option key={p.id} value={p.id}>{p.code} — {p.status}</option>
+              ))}
+            </select>
+          )}
         </form>
       )}
 
@@ -454,6 +507,7 @@ export default function OperationalPage() {
                       <th className="px-3 py-2">Sepultamento</th>
                       <th className="px-3 py-2">Prazo limite</th>
                       <th className="px-3 py-2">Dias em atraso</th>
+                      <th className="px-3 py-2 text-right">Ação</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-rose-100">
@@ -464,6 +518,14 @@ export default function OperationalPage() {
                         <td className="px-3 py-2 text-slate-600">{a.burialDate}</td>
                         <td className="px-3 py-2 text-slate-600">{a.deadlineDate}</td>
                         <td className="px-3 py-2 font-semibold text-rose-700">{Math.abs(a.daysRemaining)} dias</td>
+                        <td className="px-3 py-2 text-right">
+                          <button
+                            onClick={() => setPendingExhumation(a)}
+                            className="text-xs bg-rose-600 hover:bg-rose-700 text-white px-3 py-1.5 rounded-lg font-medium"
+                          >
+                            Gerar ordem de exumação
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -544,6 +606,24 @@ export default function OperationalPage() {
           </table>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!pendingExhumation}
+        danger
+        loading={exhumationLoading}
+        title="Gerar ordem de exumação"
+        description={
+          <>
+            Gera a ordem de exumação e <strong>BLOQUEIA</strong> o jazigo{' '}
+            <strong>{pendingExhumation?.plotCode}</strong>
+            {pendingExhumation?.occupantName ? <> ({pendingExhumation.occupantName})</> : null}
+            {' '}até a conclusão do processo. Continuar?
+          </>
+        }
+        confirmLabel="Gerar ordem"
+        onConfirm={confirmExhumationOrder}
+        onCancel={() => setPendingExhumation(null)}
+      />
     </div>
   );
 }

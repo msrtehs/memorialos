@@ -13,6 +13,7 @@ import {
   Users, FileText, Wrench, Heart, RefreshCw,
   Wifi, WifiOff, TrendingUp, Shield, Bell,
 } from 'lucide-react';
+import { reportLoadError } from '@/lib/errors';
 
 // ── Tipos locais (espelho do types.ts do backend) ────────────
 interface Alert {
@@ -133,7 +134,9 @@ function MetricCard({
       </div>
       <div className="min-w-0">
         <p className="text-xs text-gray-500 truncate">{label}</p>
-        <p className="text-xl font-bold text-gray-800 leading-tight">{value}</p>
+        <p className="text-xl font-bold text-gray-800 leading-tight" title={typeof value === 'number' && value < 0 ? 'Sem fonte de dados nesta versão' : undefined}>
+          {typeof value === 'number' && value < 0 ? 'N/D' : value}
+        </p>
         {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
       </div>
     </div>
@@ -190,7 +193,7 @@ export default function MonitoringDashboard() {
       setHistory(result.data.history ?? []);
       setLastRefresh(new Date());
     } catch (err) {
-      console.error('[MonitoringDashboard] Erro ao buscar dados:', err);
+      reportLoadError('Monitoring.fetch', err);
     } finally {
       setLoading(false);
     }
@@ -414,7 +417,7 @@ export default function MonitoringDashboard() {
               <MetricCard label="Erros nas Functions" value={t.functionsErrors24h} icon={AlertTriangle} color={t.functionsErrors24h > 0 ? '#f59e0b' : '#22c55e'} />
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              <MetricCard label="Chamadas Gemini hoje" value={t.geminiApiCallsToday} icon={Activity} color={t.geminiApiCallsToday > 800 ? '#f59e0b' : '#8b5cf6'} sub="Limite: ~1000/dia (free tier)" />
+              <MetricCard label="Chamadas de IA hoje" value={t.geminiApiCallsToday} icon={Activity} color={t.geminiApiCallsToday > 800 ? '#f59e0b' : '#8b5cf6'} sub="Chamadas às Cloud Functions de IA" />
               <MetricCard label="Usuarios ativos/24h" value={t.activeUsers24h} icon={Users} color="#3b82f6" />
               <MetricCard label="Novos cadastros/24h" value={t.newSignups24h} icon={TrendingUp} color="#22c55e" />
             </div>

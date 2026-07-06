@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
+import { reportLoadError } from '@/lib/errors';
 import { AlertTriangle, CheckCircle2, Leaf, Plus, ShieldAlert } from 'lucide-react';
 import { useAdmin } from '@/contexts/AdminContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -67,7 +68,7 @@ export default function EnvironmentalPage() {
       setEnvironmentalChecks(environmental);
       setSnapshot(executive);
     } catch (error) {
-      console.error('Erro ao carregar controle sanitario/ambiental:', error);
+      reportLoadError('EnvironmentalPage.load', error);
     } finally {
       setLoading(false);
     }

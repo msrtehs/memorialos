@@ -3,10 +3,12 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Upload, Sparkles, ChevronRight, ChevronLeft, Check, FileText } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { generateObituary } from '@/services/aiService';
-import { createDeceased } from '@/services/deceasedService';
-import { getCemeteries, Cemetery } from '@/services/cemeteryService';
+import { createDeceasedWithPlot } from '@/services/deceasedService';
+import { getCemeteryPlots, Plot } from '@/services/cemeteryService';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAdmin } from '@/contexts/AdminContext';
 import { useNavigate } from 'react-router-dom';
 
 // --- Schemas ---
@@ -57,6 +59,7 @@ const StepIndicator = ({ currentStep, totalSteps }: { currentStep: number, total
 
 export default function AdminReportDeath() {
   const { tenantId } = useAuth();
+  const { cemeteries } = useAdmin();
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState<any>({});
@@ -64,7 +67,8 @@ export default function AdminReportDeath() {
   const [docFiles, setDocFiles] = useState<File[]>([]);
   const [obituaryText, setObituaryText] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [cemeteries, setCemeteries] = useState<Cemetery[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [availablePlots, setAvailablePlots] = useState<Plot[]>([]);
 
   // B1: cria o Blob URL uma única vez por arquivo e revoga ao desmontar/trocar
   const photoPreviewUrl = useMemo(() => {
@@ -83,15 +87,18 @@ export default function AdminReportDeath() {
   const form3 = useForm({ resolver: zodResolver(step3Schema) });
   const form4 = useForm({ resolver: zodResolver(step4Schema) });
 
+
+  // Jazigos disponíveis do cemitério escolhido no passo 4 (W1-14)
+  const step4Cemetery = form4.watch('cemeteryId');
   useEffect(() => {
-    async function loadCemeteries() {
-      if (tenantId) {
-        const data = await getCemeteries(tenantId);
-        setCemeteries(data);
-      }
+    if (!step4Cemetery) {
+      setAvailablePlots([]);
+      return;
     }
-    loadCemeteries();
-  }, [tenantId]);
+    getCemeteryPlots(step4Cemetery)
+      .then((plots) => setAvailablePlots(plots.filter((p) => p.status === 'available')))
+      .catch(() => setAvailablePlots([]));
+  }, [step4Cemetery]);
 
   const handleNext = (data: any) => {
     setFormData((prev: any) => ({ ...prev, ...data }));
@@ -105,26 +112,31 @@ export default function AdminReportDeath() {
     try {
       const text = await generateObituary(formData);
       setObituaryText(text);
-    } catch (e) {
-      alert("Erro ao gerar obituário. Tente novamente.");
+    } catch (e: any) {
+      toast.error(e?.message || 'Erro ao gerar obituário. Tente novamente.');
     } finally {
       setIsGenerating(false);
     }
   };
 
   const handleFinalSubmit = async () => {
+    if (isSubmitting) return; // proteção extra contra corrida de eventos
+    setIsSubmitting(true);
     try {
       const finalData = {
         ...formData,
         obituary: obituaryText,
       };
-      
-      await createDeceased(tenantId, finalData, docFiles, photoFile || undefined);
-      
+
+      await createDeceasedWithPlot(tenantId, finalData, docFiles, photoFile || undefined);
+
+      toast.success('Registro de falecido criado com sucesso.');
       navigate('/admin/falecidos'); // Redirect to Admin Deceased List
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      alert("Erro ao salvar. Verifique os dados e tente novamente.");
+      toast.error(error?.message || 'Erro ao salvar. Verifique os dados e tente novamente.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -308,12 +320,20 @@ export default function AdminReportDeath() {
               </select>
               {form4.formState.errors.cemeteryId && <p className="text-red-500 text-xs mt-1">{String(form4.formState.errors.cemeteryId.message)}</p>}
               
-              <label className="block text-sm font-medium text-slate-700 mb-1 mt-3">Jazigo / Setor</label>
-              <input 
-                {...form4.register('plotId')} 
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 outline-none" 
-                placeholder="Identificação do local" 
-              />
+              <label className="block text-sm font-medium text-slate-700 mb-1 mt-3">Jazigo disponível</label>
+              <select
+                {...form4.register('plotId')}
+                disabled={!step4Cemetery}
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 outline-none bg-white disabled:bg-slate-100 disabled:text-slate-400"
+              >
+                <option value="">Selecione um jazigo...</option>
+                {availablePlots.map((p) => (
+                  <option key={p.id} value={p.id}>{p.code}</option>
+                ))}
+              </select>
+              {step4Cemetery && availablePlots.length === 0 && (
+                <p className="text-xs text-amber-600 mt-1">Nenhum jazigo disponível neste cemitério.</p>
+              )}
               {form4.formState.errors.plotId && <p className="text-red-500 text-xs mt-1">{String(form4.formState.errors.plotId.message)}</p>}
             </div>
 
@@ -376,8 +396,8 @@ export default function AdminReportDeath() {
               <button onClick={handleBack} className="px-4 py-2 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50 flex items-center gap-2">
                 <ChevronLeft size={18} /> Voltar
               </button>
-              <button onClick={handleFinalSubmit} className="bg-green-600 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center gap-2 shadow-sm">
-                Registrar Óbito <Check size={18} />
+              <button onClick={handleFinalSubmit} disabled={isSubmitting} className="bg-green-600 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center gap-2 shadow-sm disabled:opacity-60">
+                {isSubmitting ? 'Registrando...' : <>Registrar Óbito <Check size={18} /></>}
               </button>
             </div>
           </div>

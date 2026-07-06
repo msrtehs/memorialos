@@ -2,6 +2,7 @@ import {
   addDoc,
   collection,
   doc,
+  deleteDoc,
   getDoc,
   getDocs,
   query,
@@ -10,9 +11,11 @@ import {
   where,
   limit,
   startAfter,
+  runTransaction,
   QueryDocumentSnapshot
 } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
+import { parseISO } from 'date-fns';
 import { auth, db, storage } from '@/lib/firebase';
 import { getCemeteryPlots, getTenantPlots, Plot } from '@/services/cemeteryService';
 import { logAction } from '@/services/audit';
@@ -252,6 +255,15 @@ async function createForTenant<T extends object>(
   return docRef.id;
 }
 
+// Carimbos semânticos ao entrar em status terminal (W1-10). Reabrir (status volta a
+// open/in_progress) NÃO apaga os carimbos antigos — histórico simples, comportamento aceito.
+const TERMINAL_STATUS_STAMPS: Record<string, { field: string; byField?: string }> = {
+  resolved: { field: 'resolvedAt', byField: 'resolvedBy' },
+  done: { field: 'completedAt' },
+  closed: { field: 'closedAt' },
+  completed: { field: 'completedAt' },
+};
+
 export async function updateSCIRecord(
   tenantId: string,
   collectionName: string,
@@ -262,13 +274,104 @@ export async function updateSCIRecord(
   const refDoc = doc(db, collectionName, id);
   const oldSnap = await getDoc(refDoc);
   const oldData = oldSnap.data();
-  await updateDoc(refDoc, {
+  const enriched: Record<string, any> = {
     ...payload,
     updatedAt: serverTimestamp(),
-    updatedBy: auth.currentUser?.uid
-  });
-  await logAction(tenantId, action, collectionName, id, oldData, payload);
+    updatedBy: auth.currentUser?.uid,
+  };
+  const stamp = payload.status ? TERMINAL_STATUS_STAMPS[payload.status] : undefined;
+  if (stamp) {
+    enriched[stamp.field] = serverTimestamp();
+    if (stamp.byField) enriched[stamp.byField] = auth.currentUser?.uid;
+  }
+  await updateDoc(refDoc, enriched);
+  await logAction(tenantId, action, collectionName, id, oldData, enriched);
+  invalidateCache(`sci_snapshot:${tenantId}`);
 }
+
+export async function deleteSCIRecord(
+  tenantId: string,
+  collectionName: string,
+  id: string,
+  action: string
+) {
+  await deleteDoc(doc(db, collectionName, id));
+  await logAction(tenantId, action, collectionName, id, null, { id });
+  invalidateCache(`sci_snapshot:${tenantId}`);
+}
+
+// ── Parceiros credenciados (W4-3) — CRUD real na coleção sci_partners ──
+export interface Partner {
+  id?: string;
+  tenantId: string;
+  name: string;
+  type: 'floricultura' | 'marmoraria' | 'funeraria' | 'seguros' | 'transporte' | 'outro';
+  description?: string;
+  contact?: string;
+  email?: string;
+  active: boolean;
+  createdAt?: any;
+  createdBy?: string;
+}
+
+export const listPartners = (tenantId: string) =>
+  listByTenant<Partner>('sci_partners', tenantId);
+
+// ── Movimentação de estoque (W4-8) — entrada/baixa transacional + histórico imutável ──
+export interface StockMovement {
+  id?: string;
+  tenantId: string;
+  itemId: string;
+  itemName: string;
+  kind: 'in' | 'out';
+  quantity: number;
+  reason?: string;
+  createdAt?: any;
+  createdBy?: string;
+}
+
+export async function moveStock(
+  tenantId: string,
+  itemId: string,
+  kind: 'in' | 'out',
+  quantity: number,
+  reason?: string
+): Promise<void> {
+  if (quantity <= 0) throw new Error('Quantidade deve ser maior que zero.');
+  const itemRef = doc(db, 'sci_stock_items', itemId);
+  const movementRef = doc(collection(db, 'sci_stock_movements'));
+
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(itemRef);
+    if (!snap.exists()) throw new Error('Item de estoque não encontrado.');
+    const item = snap.data() as StockItem;
+    if (item.tenantId !== tenantId) throw new Error('Item não pertence a este tenant.');
+    const next = kind === 'in' ? item.quantity + quantity : item.quantity - quantity;
+    if (next < 0) throw new Error(`Saldo insuficiente: há ${item.quantity} ${item.unit || 'un'} em estoque.`);
+
+    tx.update(itemRef, { quantity: next, updatedAt: serverTimestamp() });
+    tx.set(movementRef, {
+      tenantId, itemId, itemName: item.name, kind, quantity,
+      reason: reason || null,
+      createdAt: serverTimestamp(),
+      createdBy: auth.currentUser?.uid,
+    });
+  });
+
+  await logAction(tenantId, 'STOCK_MOVEMENT', 'sci_stock_items', itemId, null, { kind, quantity, reason });
+  invalidateCache(`sci_snapshot:${tenantId}`);
+}
+
+export const listStockMovements = (tenantId: string) =>
+  listByTenant<StockMovement>('sci_stock_movements', tenantId);
+
+export const createPartner = (
+  tenantId: string,
+  payload: Omit<Partner, 'id' | 'tenantId' | 'createdAt' | 'createdBy'>
+) => createForTenant<typeof payload>(tenantId, 'sci_partners', 'CREATE_PARTNER', payload);
+
+export const updatePartner = (tenantId: string, id: string, payload: Partial<Partner>) =>
+  updateSCIRecord(tenantId, 'sci_partners', id, 'UPDATE_PARTNER', payload);
 
 export function listOperationalRecords(tenantId: string) {
   return listByTenant<OperationalRecord>(COLS.operational, tenantId);
@@ -326,9 +429,10 @@ export function createStockItem(tenantId: string, payload: Omit<StockItem, 'id' 
   return createForTenant(tenantId, COLS.stock, 'CREATE_STOCK_ITEM', payload);
 }
 
-export async function uploadSCIDocument(file: File) {
+export async function uploadSCIDocument(file: File, tenantId?: string) {
   const fileRef = ref(storage, `sci-documents/${auth.currentUser?.uid}/${Date.now()}_${file.name}`);
-  await uploadBytes(fileRef, file);
+  // tenantId no metadado permite ao staff do próprio tenant acessar (W2-2)
+  await uploadBytes(fileRef, file, tenantId ? { customMetadata: { tenantId } } : undefined);
   return getDownloadURL(fileRef);
 }
 
@@ -341,7 +445,7 @@ export async function createDigitalDocument(
   let fileUrl: string | undefined;
 
   if (file) {
-    fileUrl = await uploadSCIDocument(file);
+    fileUrl = await uploadSCIDocument(file, tenantId);
     fileName = file.name;
   }
 
@@ -409,6 +513,9 @@ export interface ExhumationAlert {
   burialDate: string;
   deadlineDate: string;
   daysRemaining: number;
+  // W4-9: necessários para gerar a ordem de exumação a partir do alerta
+  cemeteryId: string;
+  occupantName?: string;
 }
 
 export interface SciExecutiveSnapshot {
@@ -437,6 +544,8 @@ export interface SciExecutiveSnapshot {
   // Concession control
   expiringConcessions: number;
   priorities: RiskIndicator[];
+  // Tendência mensal de sepultamentos (W5-2) — calculada dentro do snapshot cacheado
+  monthlyBurialTrend: { month: string; count: number }[];
 }
 
 function filterByCemetery<T extends { cemeteryId: string }>(records: T[], cemeteryId: string) {
@@ -544,7 +653,7 @@ export async function getSciExecutiveSnapshot(tenantId: string, cemeteryId: stri
   for (const plot of data.plots) {
     if (plot.status === 'occupied' && plot.burialDate) {
       const deadlineYears = plot.exhumationDeadlineYears || 3;
-      const deadlineMs = new Date(plot.burialDate).getTime() + deadlineYears * 365.25 * 24 * 60 * 60 * 1000;
+      const deadlineMs = parseISO(plot.burialDate).getTime() + deadlineYears * 365.25 * 24 * 60 * 60 * 1000;
       const remaining = deadlineMs - now;
       if (remaining <= 0) {
         pendingExhumations++;
@@ -681,7 +790,8 @@ export async function getSciExecutiveSnapshot(tenantId: string, cemeteryId: stri
     pendingExhumations,
     approachingExhumations,
     expiringConcessions,
-    priorities: priorities.sort((a, b) => b.score - a.score)
+    priorities: priorities.sort((a, b) => b.score - a.score),
+    monthlyBurialTrend: buildMonthlyBurialTrend(data.operational)
   };
 }
 
@@ -711,7 +821,9 @@ export async function getExhumationAlerts(
       sectorName: plot.sectorName || plot.sectorId,
       burialDate: plot.burialDate,
       deadlineDate,
-      daysRemaining
+      daysRemaining,
+      cemeteryId: plot.cemeteryId,
+      occupantName: plot.occupantName
     };
 
     if (daysRemaining <= 0) {
@@ -727,13 +839,37 @@ export async function getExhumationAlerts(
   return { overdue, approaching };
 }
 
-export async function getMonthlyBurialTrend(
+// W4-9: gera ordem de exumação pré-preenchida a partir de um alerta vencido
+// e bloqueia o jazigo até a conclusão do processo.
+export async function createExhumationOrderFromAlert(
   tenantId: string,
-  cemeteryId: string
-): Promise<{ month: string; count: number }[]> {
-  const operational = await listOperationalRecords(tenantId);
-  const burials = (cemeteryId === 'all' ? operational : operational.filter((r) => r.cemeteryId === cemeteryId))
-    .filter((r) => r.type === 'burial');
+  alert: ExhumationAlert
+): Promise<string> {
+  // 1. Ordem operacional pré-preenchida
+  const orderId = await createForTenant(tenantId, 'sci_operational_records', 'CREATE_EXHUMATION_ORDER', {
+    cemeteryId: alert.cemeteryId,
+    type: 'exhumation',
+    title: `Exumação — jazigo ${alert.plotCode}${alert.occupantName ? ` (${alert.occupantName})` : ''}`,
+    description: `Ordem gerada automaticamente: prazo legal de exumação vencido em ${alert.deadlineDate}.`,
+    status: 'planned',
+    priority: 'high',
+    plotId: alert.plotId,
+  });
+
+  // 2. Bloqueia o jazigo até a conclusão do processo
+  await updateDoc(doc(db, 'plots', alert.plotId), {
+    status: 'blocked',
+    updatedAt: serverTimestamp(),
+  });
+
+  await logAction(tenantId, 'BLOCK_PLOT_FOR_EXHUMATION', 'plots', alert.plotId, null, { orderId });
+  invalidateCache(`sci_snapshot:${tenantId}`);
+  return orderId;
+}
+
+// W5-2: função PURA (sem I/O) — recebe os registros operacionais já carregados/filtrados.
+export function buildMonthlyBurialTrend(operational: any[]): { month: string; count: number }[] {
+  const burials = operational.filter((r) => r.type === 'burial');
 
   const now = new Date();
   const monthMap = new Map<string, number>();
@@ -761,6 +897,14 @@ export async function getMonthlyBurialTrend(
   return Array.from(monthMap.entries()).map(([month, count]) => ({ month, count }));
 }
 
+/** @deprecated W5-2: derive de `snapshot.monthlyBurialTrend` (sem leitura extra). */
+export async function getMonthlyBurialTrend(
+  tenantId: string,
+  cemeteryId: string
+): Promise<{ month: string; count: number }[]> {
+  return (await getSciExecutiveSnapshot(tenantId, cemeteryId)).monthlyBurialTrend;
+}
+
 function getReportTitle(type: SCIReport['type']) {
   const map: Record<SCIReport['type'], string> = {
     operational: 'Relatorio Operacional',
@@ -773,45 +917,85 @@ function getReportTitle(type: SCIReport['type']) {
   return map[type];
 }
 
-function buildReportSummary(type: SCIReport['type'], snapshot: SciExecutiveSnapshot) {
-  const title = getReportTitle(type);
-  const lines = [
-    `${title} - SCI`,
-    `Cemiterio: ${snapshot.cemeteryId}`,
-    `Data de geracao: ${new Date().toLocaleString('pt-BR')}`,
+export interface ReportPeriod { from?: string; to?: string } // YYYY-MM-DD
+
+const fmtBRL = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+// W4-6: seções distintas por tipo (antes os 6 tipos geravam o mesmo texto) + período + nome da unidade.
+// DIVERGÊNCIA do plano: os campos openSanitaryChecks/highSanitaryRiskPlots não existem em
+// SciExecutiveSnapshot — omitidos. Filtragem financeira por período fica como follow-up
+// (o snapshot é "estado presente"); o período informado é exibido e persistido no relatório.
+function buildReportSummary(
+  type: SCIReport['type'],
+  s: SciExecutiveSnapshot,
+  opts: { cemeteryLabel: string; period?: ReportPeriod }
+): string {
+  const header = [
+    `${getReportTitle(type)}`,
+    `Unidade: ${opts.cemeteryLabel}`,
+    `Período: ${opts.period?.from ?? 'início'} a ${opts.period?.to ?? 'hoje'}`,
+    `Data de geração: ${new Date().toLocaleString('pt-BR')}`,
     '',
-    `Taxa de ocupacao: ${snapshot.occupancyRate}%`,
-    `Sepultamentos: ${snapshot.totalBurials}`,
-    `Exumacoes: ${snapshot.totalExhumations}`,
-    `Ocorrencias em aberto: ${snapshot.openOccurrences}`,
-    `Pendencias documentais: ${snapshot.pendingDocuments}`,
-    `Alertas sanitarios: ${snapshot.sanitaryAlerts}`,
-    `Alertas ambientais: ${snapshot.environmentalAlerts}`,
-    `Falhas estruturais: ${snapshot.structuralFailures}`,
-    `Receita total: R$ ${snapshot.totalRevenue.toFixed(2)}`,
-    `Despesas totais: R$ ${snapshot.totalExpenses.toFixed(2)}`,
-    '',
-    'Prioridades de intervencao:',
-    ...(snapshot.priorities.length
-      ? snapshot.priorities.map((item, index) => `${index + 1}. [${item.level.toUpperCase()}] ${item.title} - ${item.details}`)
-      : ['Nenhuma prioridade critica detectada.'])
   ];
-  return lines.join('\n');
+
+  const sections: Record<SCIReport['type'], string[]> = {
+    operational: [
+      `Taxa de ocupação: ${s.occupancyRate}%`,
+      `Sepultamentos registrados: ${s.totalBurials}`,
+      `Exumações: ${s.totalExhumations} (pendentes: ${s.pendingExhumations}, próximas: ${s.approachingExhumations})`,
+      `Ocorrências em aberto: ${s.openOccurrences}`,
+    ],
+    sanitary: [
+      `Alertas sanitários: ${s.sanitaryAlerts}`,
+      `Ocorrências em aberto (todas as categorias): ${s.openOccurrences}`,
+    ],
+    environmental: [
+      `Alertas ambientais: ${s.environmentalAlerts}`,
+      `Falhas estruturais: ${s.structuralFailures}`,
+    ],
+    administrative: [
+      `Pendências documentais: ${s.pendingDocuments}`,
+      `Concessões vencendo em 6 meses: ${s.expiringConcessions}`,
+    ],
+    legal: [
+      `Concessões vencendo: ${s.expiringConcessions}`,
+      `Prazos de exumação vencidos: ${s.pendingExhumations}`,
+      `Pendências documentais: ${s.pendingDocuments}`,
+    ],
+    financial: [
+      `Receitas: ${fmtBRL(s.totalRevenue)}`,
+      `Despesas: ${fmtBRL(s.totalExpenses)}`,
+      `Saldo: ${fmtBRL(s.totalRevenue - s.totalExpenses)}`,
+    ],
+  };
+
+  const priorities = s.priorities.length
+    ? ['', 'Prioridades de intervenção:', ...s.priorities.map((p) => `- [${p.level.toUpperCase()}] ${p.title}: ${p.details}`)]
+    : ['', 'Nenhuma prioridade crítica detectada.'];
+
+  return [...header, ...(sections[type] || sections.operational), ...priorities].join('\n');
 }
 
 export async function createAutomaticReport(
   tenantId: string,
   type: SCIReport['type'],
-  cemeteryId: string
+  cemeteryId: string,
+  period?: ReportPeriod,
+  cemeteryName?: string
 ) {
   const snapshot = await getSciExecutiveSnapshot(tenantId, cemeteryId);
-  const summary = buildReportSummary(type, snapshot);
+  const summary = buildReportSummary(type, snapshot, {
+    cemeteryLabel: cemeteryName || (cemeteryId === 'all' ? 'Todas as unidades' : cemeteryId),
+    period,
+  });
 
-  const payload: Omit<SCIReport, 'id' | 'tenantId'> = {
+  const payload: Omit<SCIReport, 'id' | 'tenantId'> & { periodFrom?: string | null; periodTo?: string | null } = {
     cemeteryId,
     type,
     summary,
     payload: snapshot,
+    periodFrom: period?.from ?? null,
+    periodTo: period?.to ?? null,
     generatedAt: serverTimestamp(),
     generatedBy: auth.currentUser?.uid
   };

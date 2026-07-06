@@ -1,13 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, Bot, Calendar, CheckCircle, Clock, Droplets, FileText, Leaf, RefreshCw, ShieldAlert, TrendingUp } from 'lucide-react';
+import { AlertTriangle, Bell, Bot, Calendar, CheckCircle, Clock, Droplets, FileText, Leaf, RefreshCw, ShieldAlert, TrendingUp } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import toast from 'react-hot-toast';
 import { useAdmin } from '@/contexts/AdminContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { createSanitaryCheck, getMonthlyBurialTrend, getSciExecutiveSnapshot, SciExecutiveSnapshot } from '@/services/sciService';
+import { createSanitaryCheck, getSciExecutiveSnapshot, SciExecutiveSnapshot } from '@/services/sciService';
+import { getTenantNotifications } from '@/services/notificationService';
 import { StatCardSkeleton } from '@/components/ui/StatCardSkeleton';
 import { formatCurrency } from '@/lib/formatters';
+import { reportLoadError } from '@/lib/errors';
 
 const cardClass = 'bg-white p-6 rounded-xl shadow-sm border border-slate-200';
 
@@ -33,17 +35,19 @@ const defaultSnapshot: SciExecutiveSnapshot = {
   pendingExhumations: 0,
   approachingExhumations: 0,
   expiringConcessions: 0,
-  priorities: []
+  priorities: [],
+  monthlyBurialTrend: []
 };
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const { tenantId } = useAuth();
-  const { selectedCemeteryId } = useAdmin();
+  const { selectedCemeteryId, selectedCemeteryName } = useAdmin();
 
   const [snapshot, setSnapshot] = useState<SciExecutiveSnapshot>(defaultSnapshot);
   const [loading, setLoading] = useState(true);
   const [monthlyTrend, setMonthlyTrend] = useState<{ month: string; count: number }[]>([]);
+  const [pendingNotifications, setPendingNotifications] = useState<number | null>(null);
   const [showChecklist, setShowChecklist] = useState(false);
   const [checklist, setChecklist] = useState({
     area: '',
@@ -62,14 +66,16 @@ export default function AdminDashboard() {
     }
     setLoading(true);
     try {
-      const [data, trend] = await Promise.all([
+      const [data, notifications] = await Promise.all([
         getSciExecutiveSnapshot(tenantId, selectedCemeteryId),
-        getMonthlyBurialTrend(tenantId, selectedCemeteryId === 'all' ? undefined : selectedCemeteryId)
+        // TODO(W5-6): migrar para getCountFromServer quando disponível
+        getTenantNotifications(tenantId)
       ]);
       setSnapshot(data);
-      setMonthlyTrend(trend);
+      setMonthlyTrend(data.monthlyBurialTrend); // W5-2: derivado do snapshot, sem leitura extra
+      setPendingNotifications(notifications.filter((n) => n.status === 'submitted').length);
     } catch (error) {
-      console.error('Erro ao carregar dashboard executivo:', error);
+      reportLoadError('AdminDashboard.load', error);
     } finally {
       setLoading(false);
     }
@@ -153,7 +159,7 @@ export default function AdminDashboard() {
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Dashboard Executivo SCI</h1>
           <p className="text-sm text-slate-500">
-            Unidade: <span className="font-medium text-slate-700">{selectedCemeteryId === 'all' ? 'Todas as unidades' : selectedCemeteryId}</span>
+            Unidade: <span className="font-medium text-slate-700">{selectedCemeteryName}</span>
           </p>
         </div>
         <button
@@ -163,6 +169,25 @@ export default function AdminDashboard() {
           <RefreshCw size={16} /> Atualizar
         </button>
       </div>
+
+      {/* Óbitos aguardando análise — tarefa nº 1 do gestor (W3-11) */}
+      <button
+        onClick={() => navigate('/admin/obitos-comunicados')}
+        className={`${cardClass} text-left w-full transition-colors ${
+          (pendingNotifications ?? 0) > 0 ? 'ring-2 ring-amber-400 bg-amber-50' : ''
+        }`}
+      >
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm font-medium text-slate-600">Óbitos aguardando análise</span>
+          <Bell size={18} className={(pendingNotifications ?? 0) > 0 ? 'text-amber-500' : 'text-slate-300'} />
+        </div>
+        <div className="text-3xl font-bold text-slate-900">{pendingNotifications ?? '—'}</div>
+        <p className="text-xs text-slate-500 mt-1">
+          {(pendingNotifications ?? 0) > 0
+            ? 'Famílias aguardando resposta — analisar agora'
+            : 'Nenhuma solicitação pendente'}
+        </p>
+      </button>
 
       {/* Row 1: Occupancy, Available, Saturation, Occurrences */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">

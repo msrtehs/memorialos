@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { collection, getDocs, query, limit as firestoreLimit } from 'firebase/firestore';
+import { Link } from 'react-router-dom';
+import { collection, getDocs, query, where, limit as firestoreLimit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Search, User, MapPin, Calendar } from 'lucide-react';
 
@@ -19,6 +20,7 @@ export default function SearchPage() {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,18 +29,21 @@ export default function SearchPage() {
 
     setLoading(true);
     setSearched(true);
+    setSearchError(null);
     try {
-      // Lê a projeção pública (LGPD-safe), não a coleção `deceaseds` (staff-only).
-      const q = query(collection(db, 'public_deceaseds'), firestoreLimit(200));
-      const snapshot = await getDocs(q);
-      const all = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SearchResult));
-      const filtered = all.filter(d =>
-        d.name?.toLowerCase().includes(term)
+      // Busca server-side por prefixo na projeção pública (LGPD-safe), via nameLowercase (W5-8).
+      const q = query(
+        collection(db, 'public_deceaseds'),
+        where('nameLowercase', '>=', term),
+        where('nameLowercase', '<=', term + ''),
+        firestoreLimit(50)
       );
-      setResults(filtered);
+      const snapshot = await getDocs(q);
+      setResults(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SearchResult)));
     } catch (error) {
       console.error('Erro na busca:', error);
       setResults([]);
+      setSearchError('Não foi possível concluir a busca. Verifique sua conexão e tente novamente.');
     } finally {
       setLoading(false);
     }
@@ -81,6 +86,11 @@ export default function SearchPage() {
       {/* Results */}
       <section className="py-10 px-4">
         <div className="max-w-4xl mx-auto">
+          {searchError && (
+            <div className="mb-6 bg-rose-50 border border-rose-200 text-rose-700 rounded-lg p-4 text-sm text-center">
+              {searchError}
+            </div>
+          )}
           {!searched ? (
             <div className="text-center py-16">
               <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -94,7 +104,7 @@ export default function SearchPage() {
             <div className="text-center py-16">
               <p className="text-slate-400">Buscando registros...</p>
             </div>
-          ) : results.length === 0 ? (
+          ) : searchError ? null : results.length === 0 ? (
             <div className="text-center py-16">
               <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <User size={28} className="text-slate-400" />
@@ -111,7 +121,8 @@ export default function SearchPage() {
               </p>
               <div className="space-y-4">
                 {results.map((person) => (
-                  <div
+                  <Link
+                    to={`/memorial/${person.id}`}
                     key={person.id}
                     className="bg-white p-5 rounded-xl border border-slate-200 hover:shadow-md transition-shadow flex items-center gap-5"
                   >
@@ -145,7 +156,7 @@ export default function SearchPage() {
                         )}
                       </div>
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             </>

@@ -302,8 +302,35 @@ export async function updateSector(tenantId: string, sectorId: string, data: Par
 }
 
 export async function deleteSector(tenantId: string, sectorId: string) {
-  await deleteDoc(doc(db, SECTORS_COL, sectorId));
-  await logAction(tenantId, 'DELETE_SECTOR', SECTORS_COL, sectorId, null, null);
+  // Bloqueia se houver jazigos ocupados ou reservados no setor
+  const occupiedQuery = query(
+    collection(db, PLOTS_COL),
+    where('sectorId', '==', sectorId),
+    where('status', 'in', ['occupied', 'reserved']),
+    limit(1)
+  );
+  const occupiedSnap = await getDocs(occupiedQuery);
+  if (!occupiedSnap.empty) {
+    throw new Error('Não é possível excluir: o setor possui jazigos ocupados ou reservados.');
+  }
+
+  // Cascade: apaga os plots restantes (available/blocked) em lotes de 450
+  const plotsSnap = await getDocs(
+    query(collection(db, PLOTS_COL), where('sectorId', '==', sectorId))
+  );
+  let batch = writeBatch(db);
+  let ops = 0;
+  for (const plotDoc of plotsSnap.docs) {
+    batch.delete(plotDoc.ref);
+    ops++;
+    if (ops >= 450) { await batch.commit(); batch = writeBatch(db); ops = 0; }
+  }
+  batch.delete(doc(db, SECTORS_COL, sectorId));
+  await batch.commit();
+
+  await logAction(tenantId, 'DELETE_SECTOR', SECTORS_COL, sectorId, null, {
+    plotsDeleted: plotsSnap.size,
+  });
 }
 
 // --- Plots ---

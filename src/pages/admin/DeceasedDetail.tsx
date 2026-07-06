@@ -3,6 +3,8 @@ import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, FileText } from 'lucide-react';
 import { parseISO, format } from 'date-fns';
 import { getDeceased, Deceased } from '@/services/deceasedService';
+import { reportLoadError } from '@/lib/errors';
+import QRCodeGenerator from '@/components/QRCodeGenerator';
 
 function formatDate(iso?: string) {
   if (!iso) return '—';
@@ -25,7 +27,7 @@ export default function DeceasedDetail() {
         const data = await getDeceased(id);
         setPerson(data);
       } catch (error) {
-        console.error('Error loading deceased:', error);
+        reportLoadError('DeceasedDetail.load', error);
       } finally {
         setLoading(false);
       }
@@ -55,18 +57,26 @@ export default function DeceasedDetail() {
       </Link>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
-        <div className="flex items-center gap-4">
-          {person.photoUrl ? (
-            <img src={person.photoUrl} alt={person.name} className="w-20 h-20 rounded-xl object-cover" />
-          ) : (
-            <div className="w-20 h-20 rounded-xl bg-slate-100" />
-          )}
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">{person.name}</h1>
-            <p className="text-slate-500 text-sm">
-              {formatDate(person.dateOfBirth)} — {formatDate(person.dateOfDeath)}
-            </p>
+        <div className="flex items-center gap-4 justify-between">
+          <div className="flex items-center gap-4">
+            {person.photoUrl ? (
+              <img src={person.photoUrl} alt={person.name} className="w-20 h-20 rounded-xl object-cover" />
+            ) : (
+              <div className="w-20 h-20 rounded-xl bg-slate-100" />
+            )}
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900">{person.name}</h1>
+              <p className="text-slate-500 text-sm">
+                {formatDate(person.dateOfBirth)} — {formatDate(person.dateOfDeath)}
+              </p>
+            </div>
           </div>
+          <Link
+            to={`/admin/falecidos/${id}/editar`}
+            className="bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-800 shrink-0"
+          >
+            Editar registro
+          </Link>
         </div>
 
         <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6 text-sm">
@@ -113,6 +123,14 @@ export default function DeceasedDetail() {
             </div>
           </div>
         )}
+
+        <div className="mt-6 border-t border-slate-100 pt-6">
+          <h2 className="text-sm font-semibold text-slate-700 mb-2">QR do memorial público</h2>
+          <QRCodeGenerator
+            value={`${window.location.origin}${import.meta.env.BASE_URL}memorial/${id}`}
+            label={`Memorial de ${person.name}`}
+          />
+        </div>
       </div>
     </div>
   );

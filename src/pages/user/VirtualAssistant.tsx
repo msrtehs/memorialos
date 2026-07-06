@@ -53,6 +53,7 @@ export default function VirtualAssistant() {
           ]);
         }
       } catch (error) {
+        // best-effort deliberado: o contexto emocional é opcional; o chat funciona sem ele.
         console.error('Erro ao carregar contexto emocional:', error);
       }
     }

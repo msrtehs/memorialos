@@ -1,10 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
+import { reportLoadError } from '@/lib/errors';
 import { DollarSign, Plus, TrendingUp } from 'lucide-react';
 import { useAdmin } from '@/contexts/AdminContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { createFinancialRecord, getSciExecutiveSnapshot, listFinancialRecords, FinancialRecord, SciExecutiveSnapshot } from '@/services/sciService';
+import { createFinancialRecord, deleteSCIRecord, getSciExecutiveSnapshot, listFinancialRecords, FinancialRecord, SciExecutiveSnapshot } from '@/services/sciService';
 import { formatCurrency } from '@/lib/formatters';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { reportError } from '@/lib/errors';
+import { Trash2 } from 'lucide-react';
 
 type Tab = 'transactions' | 'pricing' | 'projections';
 
@@ -21,7 +25,9 @@ export default function FinancialPage() {
   const [activeTab, setActiveTab] = useState<Tab>('transactions');
   const [records, setRecords] = useState<FinancialRecord[]>([]);
   const [snapshot, setSnapshot] = useState<SciExecutiveSnapshot | null>(null);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<FinancialRecord | null>(null);
 
   const [form, setForm] = useState({
     description: '',
@@ -38,6 +44,7 @@ export default function FinancialPage() {
 
   const loadData = async () => {
     if (!tenantId) return;
+    setLoading(true);
     try {
       const [financialData, exec] = await Promise.all([
         listFinancialRecords(tenantId),
@@ -46,7 +53,9 @@ export default function FinancialPage() {
       setRecords(financialData);
       setSnapshot(exec);
     } catch (error) {
-      console.error('Erro ao carregar financeiro:', error);
+      reportLoadError('FinancialPage.load', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -59,6 +68,10 @@ export default function FinancialPage() {
     if (!tenantId || !form.description || !form.value) return;
     if (selectedCemeteryId === 'all') {
       toast.error('Selecione um cemitério específico antes de criar um registro.');
+      return;
+    }
+    if (Number(form.value) < 0) {
+      toast.error('Valor não pode ser negativo. Use a categoria "Despesa".');
       return;
     }
     setSaving(true);
@@ -92,6 +105,18 @@ export default function FinancialPage() {
     }
   };
 
+  const confirmDelete = async () => {
+    if (!tenantId || !pendingDelete?.id) return;
+    try {
+      await deleteSCIRecord(tenantId, 'sci_financial_records', pendingDelete.id, 'DELETE_FINANCIAL_RECORD');
+      toast.success('Lançamento excluído.');
+      setPendingDelete(null);
+      await loadData();
+    } catch (error) {
+      reportError('Financial.delete', error);
+    }
+  };
+
   const balance = (snapshot?.totalRevenue || 0) - (snapshot?.totalExpenses || 0);
 
   return (
@@ -101,7 +126,7 @@ export default function FinancialPage() {
         <div className="flex bg-white rounded-lg shadow-sm border border-slate-200 p-1 overflow-x-auto whitespace-nowrap">
           <button onClick={() => setActiveTab('transactions')} className={`px-4 py-2 rounded-md text-sm font-medium ${activeTab === 'transactions' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}>Transacoes</button>
           <button onClick={() => setActiveTab('pricing')} className={`px-4 py-2 rounded-md text-sm font-medium ${activeTab === 'pricing' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}>Tabela de precos</button>
-          <button onClick={() => setActiveTab('projections')} className={`px-4 py-2 rounded-md text-sm font-medium ${activeTab === 'projections' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}>Projecoes</button>
+          <button onClick={() => setActiveTab('projections')} className={`px-4 py-2 rounded-md text-sm font-medium ${activeTab === 'projections' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}>Consolidado</button>
         </div>
       </div>
 
@@ -120,7 +145,7 @@ export default function FinancialPage() {
               <option value="maintenance">Manutencao</option>
               <option value="other">Outro</option>
             </select>
-            <input value={form.value} onChange={(e) => setForm((prev) => ({ ...prev, value: e.target.value }))} type="number" step="0.01" className="border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Valor" required />
+            <input value={form.value} onChange={(e) => setForm((prev) => ({ ...prev, value: e.target.value }))} type="number" step="0.01" min="0" className="border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Valor" required />
             <div className="flex gap-2">
               <input value={form.occurredAt} onChange={(e) => setForm((prev) => ({ ...prev, occurredAt: e.target.value }))} type="date" className="border border-slate-300 rounded-lg px-3 py-2 text-sm flex-1" required />
               <button type="submit" disabled={saving} className="bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-60 flex items-center gap-1">
@@ -137,11 +162,14 @@ export default function FinancialPage() {
                   <th className="px-4 py-3">Descricao</th>
                   <th className="px-4 py-3">Categoria</th>
                   <th className="px-4 py-3">Valor</th>
-                  <th className="px-4 py-3">Auditoria</th>
+                  <th className="px-4 py-3 text-right">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {scopedRecords.map((item) => (
+                {loading && (
+                  <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-500">Carregando...</td></tr>
+                )}
+                {!loading && scopedRecords.map((item) => (
                   <tr key={item.id} className="hover:bg-slate-50">
                     <td className="px-4 py-3 text-slate-600">{item.occurredAt}</td>
                     <td className="px-4 py-3 font-medium text-slate-900">{item.description}</td>
@@ -149,16 +177,19 @@ export default function FinancialPage() {
                     <td className={`px-4 py-3 font-semibold ${item.category === 'income' ? 'text-emerald-700' : 'text-rose-700'}`}>
                       {item.category === 'income' ? '+' : '-'} {formatCurrency(Number(item.value))}
                     </td>
-                    <td className="px-4 py-3">
-                      {item.aiAudited ? (
-                        <span className="px-2 py-1 rounded-full text-xs border bg-blue-50 text-blue-700 border-blue-200">Validado IA</span>
-                      ) : (
-                        <span className="px-2 py-1 rounded-full text-xs border bg-slate-100 text-slate-600 border-slate-200">Pendente</span>
-                      )}
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        onClick={() => setPendingDelete(item)}
+                        className="p-1 text-slate-400 hover:text-red-500 rounded"
+                        title="Excluir lançamento"
+                        aria-label="Excluir lançamento"
+                      >
+                        <Trash2 size={16} />
+                      </button>
                     </td>
                   </tr>
                 ))}
-                {scopedRecords.length === 0 && (
+                {!loading && scopedRecords.length === 0 && (
                   <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-500">Nenhum lancamento financeiro cadastrado.</td></tr>
                 )}
               </tbody>
@@ -191,9 +222,9 @@ export default function FinancialPage() {
                 <TrendingUp size={30} className="text-white" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold mb-2">Analise preditiva</h2>
+                <h2 className="text-2xl font-bold mb-2">Consolidado financeiro</h2>
                 <p className="text-blue-100 max-w-2xl">
-                  O SCI cruza ocupacao, fluxo operacional e passivos documentais para projetar capacidade e receita. Quanto maior a saturacao, maior a necessidade de expansao e priorizacao de exumacoes regulamentares.
+                  Receitas, despesas e saldo dos lançamentos registrados no período. Os valores refletem os registros existentes — não há projeção estatística nesta versão.
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
                   <div className="bg-white/10 rounded-xl p-4">
@@ -214,6 +245,21 @@ export default function FinancialPage() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        danger
+        title="Excluir lançamento"
+        description={
+          <>
+            Excluir o lançamento <strong>{pendingDelete?.description}</strong> ({formatCurrency(Number(pendingDelete?.value || 0))})?
+            A ação é registrada na trilha de auditoria e não pode ser desfeita.
+          </>
+        }
+        confirmLabel="Excluir lançamento"
+        onConfirm={confirmDelete}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   );
 }

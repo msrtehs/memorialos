@@ -1,5 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import toast from 'react-hot-toast';
 import { Bot, Plus, Send, User } from 'lucide-react';
+import { reportError, reportLoadError } from '@/lib/errors';
+import { formatCurrency } from '@/lib/formatters';
 import { useAdmin } from '@/contexts/AdminContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { chatWithManagerAgent } from '@/services/aiService';
@@ -44,7 +47,7 @@ export default function AgentsPage() {
         setSelectedAgentId(agentData[0].id);
       }
     } catch (error) {
-      console.error('Erro ao carregar agentes IA:', error);
+      reportLoadError('AgentsPage.load', error);
     }
   };
 
@@ -64,6 +67,7 @@ export default function AgentsPage() {
         modules: form.modules.split(',').map((item) => item.trim()).filter(Boolean),
         isActive: form.isActive
       });
+      toast.success(`Agente "${form.name}" criado.`);
       setForm({
         name: '',
         mode: 'agent',
@@ -74,7 +78,7 @@ export default function AgentsPage() {
       });
       await loadData();
     } catch (error) {
-      console.error('Erro ao criar agente/chatbot:', error);
+      reportError('AgentsPage.create', error);
     }
   };
 
@@ -82,9 +86,10 @@ export default function AgentsPage() {
     if (!tenantId) return;
     try {
       await updateSCIRecord(tenantId, 'sci_ai_agents', id, 'TOGGLE_AI_AGENT', { isActive: !currentValue });
+      toast.success(currentValue ? 'Agente desativado.' : 'Agente ativado.');
       await loadData();
     } catch (error) {
-      console.error('Erro ao atualizar agente IA:', error);
+      reportError('AgentsPage.toggle', error);
     }
   };
 
@@ -120,8 +125,8 @@ export default function AgentsPage() {
       `Riscos ambientais: ${snapshot.environmentalAlerts}`,
       `Falhas estruturais: ${snapshot.structuralFailures}`,
       `Pendencias documentais: ${snapshot.pendingDocuments}`,
-      `Receita: R$ ${snapshot.totalRevenue.toFixed(2)}`,
-      `Despesa: R$ ${snapshot.totalExpenses.toFixed(2)}`
+      `Receita: ${formatCurrency(snapshot.totalRevenue)}`,
+      `Despesa: ${formatCurrency(snapshot.totalExpenses)}`
     ].join(' | ');
   };
 
@@ -141,12 +146,12 @@ export default function AgentsPage() {
         buildContext()
       );
       setMessages((prev) => [...prev, { role: 'model', text: reply }]);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro no chat do agente:', error);
-      setMessages((prev) => [
-        ...prev,
-        { role: 'model', text: 'Falha ao consultar IA externa. Verifique a chave Gemini e tente novamente.' }
-      ]);
+      const friendly = error?.code === 'functions/resource-exhausted'
+        ? 'Limite de uso de IA atingido por hoje. Tente novamente amanhã.'
+        : 'Serviço de IA indisponível no momento. Tente novamente em instantes ou contate o suporte.';
+      setMessages((prev) => [...prev, { role: 'model', text: friendly }]);
     } finally {
       setLoadingReply(false);
     }

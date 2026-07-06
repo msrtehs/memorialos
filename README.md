@@ -35,19 +35,31 @@ VITE_FIREBASE_APP_ID=seu_app_id
 
 > A `VITE_FIREBASE_API_KEY` é a chave web pública do Firebase — pode ficar no bundle e é protegida pelas regras de segurança.
 
-## IA (Gemini) via Cloud Functions
+## IA (OpenRouter) via Cloud Functions
 
-**A chave do Gemini NÃO fica mais no frontend** (correção C4). Não existe mais `VITE_GEMINI_API_KEY`. A geração de conteúdo por IA (obituário, chat, agentes) passa pela Cloud Function `generateContent`, que mantém a chave fora do bundle e exige autenticação:
+**A chave de IA NÃO fica no frontend.** Não existe `VITE_GEMINI_API_KEY` (nem qualquer segredo `VITE_*`) — tudo que entra no `.env` do Vite vai para o bundle público. A geração de conteúdo por IA (obituário, chat, agentes) passa pelas Cloud Functions (`generateObituary`, etc.), que usam o modelo OpenRouter e mantêm a chave fora do bundle como um secret gerenciado:
 
 ```bash
-cd functions && npm install   # inclui @google/generative-ai
-firebase functions:config:set gemini.api_key="SUA_CHAVE_GEMINI"
+cd functions && npm install
+firebase functions:secrets:set OPENROUTER_API_KEY   # cole a chave quando solicitado
 firebase deploy --only functions
+```
+
+O trigger manual de monitoramento (`manualMonitorTrigger`) é fail-closed: sem o secret `MONITOR_TRIGGER_TOKEN` configurado, responde `503` e não executa.
+
+```bash
+firebase functions:secrets:set MONITOR_TRIGGER_TOKEN   # ex.: openssl rand -hex 32
 ```
 
 ## Superadmin e perfis
 
-Não há mais backdoor demo (correção C1). O painel admin exige o custom claim `role: 'superadmin'`. Para promover a conta administrativa uma única vez, use `scripts/set-superadmin.js` (com uma `serviceAccountKey.json`), depois apague o script e a chave. Demais perfis (`manager`, `operator`, `citizen`) são atribuídos pela Cloud Function `setUserRole`.
+Não há backdoor demo. O painel admin exige o custom claim `role: 'superadmin'`. Para promover uma conta, use `scripts/set-superadmin.cjs` (com uma `serviceAccountKey.json` na pasta `scripts/`), passando o e-mail no argumento; depois apague a chave:
+
+```bash
+node scripts/set-superadmin.cjs seu-email@dominio.gov.br
+```
+
+O script recusa os e-mails do antigo backdoor demo (`admin@memorial.com`, `gestor@memorial.com`). Demais perfis (`manager`, `operator`, `citizen`) são atribuídos pela Cloud Function `setUserRole`.
 
 ## Deploy no GitHub Pages
 
@@ -55,16 +67,16 @@ Este repositório possui workflow em `.github/workflows/deploy-pages.yml`.
 
 Antes do primeiro deploy, configure no GitHub:
 
-> Nota: o `GEMINI_API_KEY` **não é mais** usado no build do frontend (foi movido para as Cloud Functions — ver seção acima). Configure-o apenas via `firebase functions:config:set`.
+> Nota: **nenhum segredo** entra no `.env` de build — o workflow tem um passo de guard que falha se encontrar padrões de chave (`GEMINI`, `sk-or-v1`) no bundle. A config Web do Firebase é pública por design (protegida por rules + App Check) e vem das **Variables** abaixo. A chave de IA fica apenas no secret `OPENROUTER_API_KEY` das Cloud Functions.
 
-1.  **Variables** (`Settings > Secrets and variables > Actions > Variables`)
-    *   `VITE_FIREBASE_API_KEY`
-    *   `VITE_FIREBASE_AUTH_DOMAIN`
-    *   `VITE_FIREBASE_PROJECT_ID`
-    *   `VITE_FIREBASE_STORAGE_BUCKET`
-    *   `VITE_FIREBASE_MESSAGING_SENDER_ID`
-    *   `VITE_FIREBASE_APP_ID`
-    *   `VITE_FIREBASE_MEASUREMENT_ID`
+1.  **Variables** (`Settings > Secrets and variables > Actions > Variables`) — nomes **sem** o prefixo `VITE_`; o workflow os mapeia para `VITE_*` no `.env` de build:
+    *   `FIREBASE_API_KEY`
+    *   `FIREBASE_AUTH_DOMAIN`
+    *   `FIREBASE_PROJECT_ID`
+    *   `FIREBASE_STORAGE_BUCKET`
+    *   `FIREBASE_MESSAGING_SENDER_ID`
+    *   `FIREBASE_APP_ID`
+    *   `FIREBASE_MEASUREMENT_ID`
 3.  Em `Settings > Pages`, selecione **Build and deployment: GitHub Actions**.
 
 ## Comandos

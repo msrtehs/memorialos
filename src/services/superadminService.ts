@@ -33,11 +33,12 @@ export async function deleteManagerAccount(data: {
 
 // ─── Per-tenant user management ───────────────────────────────────────────────
 
-/** Add an additional manager login to an existing prefecture/tenant. */
+/** Add an additional staff login (manager/operator) to an existing prefecture/tenant. */
 export async function addUserToTenant(data: {
   tenantId: string;
   email: string;
   password: string;
+  role?: 'manager' | 'operator';
 }) {
   const fn = httpsCallable(functions, 'addUserToTenant');
   const res = await fn(data);

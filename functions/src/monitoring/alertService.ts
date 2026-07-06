@@ -87,7 +87,7 @@ function buildDailyReportMessage(metrics: DashboardMetrics): string {
 }
 
 // ── Envia mensagem via Evolution API ────────────────────────
-async function sendWhatsAppMessage(
+async function postWhatsApp(
   config: MonitorConfig,
   phoneNumber: string,
   message: string
@@ -158,7 +158,7 @@ export async function dispatchAlerts(
     });
 
     await Promise.all([
-      ...recipients.map(r => sendWhatsAppMessage(config, r.number, message)),
+      ...recipients.map(r => postWhatsApp(config, r.number, message)),
       persistAlert(alert),
     ]);
   }
@@ -176,8 +176,17 @@ export async function sendDailyReport(
   const superadmins = config.whatsapp.recipients.filter(r => r.role === 'superadmin');
 
   await Promise.all(
-    superadmins.map(r => sendWhatsAppMessage(config, r.number, message))
+    superadmins.map(r => postWhatsApp(config, r.number, message))
   );
 
   console.log(`[AlertService] Relatorio diario enviado para ${superadmins.length} superadmin(s).`);
+}
+
+// ── Envio unitário exportado (W4-11) — usado pelo trigger de decisão à família ──
+export async function sendWhatsAppMessage(
+  phone: string,
+  text: string,
+  config: MonitorConfig
+): Promise<void> {
+  await postWhatsApp(config, phone, text);
 }

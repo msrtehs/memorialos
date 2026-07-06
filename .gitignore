@@ -9,8 +9,10 @@ coverage/
 # Credenciais/segredos que nunca devem ir para o repositório
 serviceAccountKey.json
 **/serviceAccountKey.json
+scripts/superadmin-claim.json
 .runtimeconfig.json
 firebase-debug.log
 
 # Worktrees temporários do Claude
 .claude/worktrees/
+firestore-debug.log

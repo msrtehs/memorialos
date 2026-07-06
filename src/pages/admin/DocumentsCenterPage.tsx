@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
+import { reportLoadError } from '@/lib/errors';
 import { FileText, Upload } from 'lucide-react';
 import { useAdmin } from '@/contexts/AdminContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -10,6 +11,7 @@ export default function DocumentsCenterPage() {
   const { tenantId } = useAuth();
   const { selectedCemeteryId } = useAdmin();
   const [docs, setDocs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [file, setFile] = useState<File | undefined>(undefined);
   const [form, setForm] = useState({
@@ -29,11 +31,14 @@ export default function DocumentsCenterPage() {
 
   const loadDocs = async () => {
     if (!tenantId) return;
+    setLoading(true);
     try {
       const data = await listDigitalDocuments(tenantId);
       setDocs(data);
     } catch (error) {
-      console.error('Erro ao carregar documentos:', error);
+      reportLoadError('DocumentsCenter.load', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -166,7 +171,10 @@ export default function DocumentsCenterPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {scopedDocs.map((doc) => (
+            {loading && (
+              <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500">Carregando...</td></tr>
+            )}
+            {!loading && scopedDocs.map((doc) => (
               <tr key={doc.id} className="hover:bg-slate-50">
                 <td className="px-4 py-3 font-medium text-slate-900">{doc.title}</td>
                 <td className="px-4 py-3 text-slate-600">{doc.documentType}</td>
@@ -190,7 +198,7 @@ export default function DocumentsCenterPage() {
                 </td>
               </tr>
             ))}
-            {scopedDocs.length === 0 && (
+            {!loading && scopedDocs.length === 0 && (
               <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500">Nenhum documento digital cadastrado.</td></tr>
             )}
           </tbody>

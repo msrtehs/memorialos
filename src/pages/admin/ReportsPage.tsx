@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import toast from 'react-hot-toast';
 import { Download, FileBarChart2, Plus } from 'lucide-react';
 import { useAdmin } from '@/contexts/AdminContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { createAutomaticReport, listSCIReports } from '@/services/sciService';
+import { reportError, reportLoadError } from '@/lib/errors';
 
 const reportTypes = [
   { id: 'operational', label: 'Operacional' },
@@ -10,16 +12,20 @@ const reportTypes = [
   { id: 'environmental', label: 'Ambiental' },
   { id: 'administrative', label: 'Administrativo' },
   { id: 'legal', label: 'Juridico' },
-  { id: 'financial', label: 'Financeiro (opcional)' }
+  { id: 'financial', label: 'Financeiro' }
 ];
 
 export default function ReportsPage() {
   const { tenantId } = useAuth();
-  const { selectedCemeteryId } = useAdmin();
+  const { selectedCemeteryId, cemeteries } = useAdmin();
   const [reports, setReports] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
   const [type, setType] = useState('operational');
+  const [periodFrom, setPeriodFrom] = useState('');
+  const [periodTo, setPeriodTo] = useState('');
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
+
+  const cemeteryName = cemeteries.find((c) => c.id === selectedCemeteryId)?.name;
 
   const scopedReports = useMemo(
     () =>
@@ -42,7 +48,7 @@ export default function ReportsPage() {
         setSelectedReportId(data[0].id);
       }
     } catch (error) {
-      console.error('Erro ao carregar relatorios SCI:', error);
+      reportLoadError('ReportsPage.load', error);
     }
   };
 
@@ -54,10 +60,17 @@ export default function ReportsPage() {
     if (!tenantId) return;
     setSaving(true);
     try {
-      await createAutomaticReport(tenantId, type as any, selectedCemeteryId === 'all' ? 'all' : selectedCemeteryId);
+      await createAutomaticReport(
+        tenantId,
+        type as any,
+        selectedCemeteryId === 'all' ? 'all' : selectedCemeteryId,
+        { from: periodFrom || undefined, to: periodTo || undefined },
+        cemeteryName
+      );
+      toast.success('Relatório gerado. Selecione-o no histórico para visualizar ou baixar.');
       await loadReports();
     } catch (error) {
-      console.error('Erro ao gerar relatorio automatico:', error);
+      reportError('ReportsPage.generate', error);
     } finally {
       setSaving(false);
     }
@@ -88,6 +101,12 @@ export default function ReportsPage() {
             <option key={item.id} value={item.id}>{item.label}</option>
           ))}
         </select>
+        <label className="text-sm text-slate-500 flex items-center gap-1">
+          De <input type="date" value={periodFrom} onChange={(e) => setPeriodFrom(e.target.value)} className="border border-slate-300 rounded-lg px-2 py-2 text-sm" />
+        </label>
+        <label className="text-sm text-slate-500 flex items-center gap-1">
+          Até <input type="date" value={periodTo} onChange={(e) => setPeriodTo(e.target.value)} className="border border-slate-300 rounded-lg px-2 py-2 text-sm" />
+        </label>
         <button onClick={handleGenerateReport} disabled={saving} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-60 flex items-center gap-2">
           <Plus size={14} /> {saving ? 'Gerando...' : 'Gerar relatorio'}
         </button>

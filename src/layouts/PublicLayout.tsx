@@ -1,7 +1,6 @@
 import React from 'react';
 import { Link, Outlet } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { Search, Menu, User } from 'lucide-react';
 
 export default function PublicLayout() {
   const { user } = useAuth();

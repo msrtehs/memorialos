@@ -32,6 +32,7 @@ export default function UserLayout() {
         setProfilePhoto(profile?.photoUrl || user.photoURL || '');
         setDisplayName(profile?.displayName || user.displayName || 'Usuario');
       } catch (error) {
+        // best-effort deliberado: fallback de exibição (foto/nome do Auth) já cobre a falha.
         console.error('Erro ao carregar perfil no layout:', error);
         setProfilePhoto(user.photoURL || '');
         setDisplayName(user.displayName || 'Usuario');
