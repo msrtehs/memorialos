@@ -12,7 +12,10 @@ const { getFirestore } = require('firebase-admin/firestore');
 const { getStorage } = require('firebase-admin/storage');
 const serviceAccount = require('./serviceAccountKey.json');
 
-initializeApp({ credential: cert(serviceAccount) });
+// Bucket do projeto (o mesmo do VITE_FIREBASE_STORAGE_BUCKET). Pode sobrescrever via env.
+const STORAGE_BUCKET = process.env.FIREBASE_STORAGE_BUCKET || 'memorialos.firebasestorage.app';
+
+initializeApp({ credential: cert(serviceAccount), storageBucket: STORAGE_BUCKET });
 const db = getFirestore();
 const bucket = getStorage().bucket();
 
