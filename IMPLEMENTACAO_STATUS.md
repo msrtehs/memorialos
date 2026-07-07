@@ -147,9 +147,9 @@ Pré-verificação pendente (W2-1 passo 1): script Admin SDK listando claims PT 
 
 - [x] **W6-4** — `formatters.ts`: formatDate aceita null + `formatDateTime` novo. sciService: `parseISO` nos 2 cálculos de prazo de exumação (corrige off-by-one UTC/BRT). (aplicar formatDate nas ~8 tabelas restantes: pendente)
 - [x] **W6-5** — Moeda pt-BR: AgentsPage usa formatCurrency (buildReportSummary já usava via W4-6). `grep toFixed(2)` monetário → 0.
-- [x] **W6-6** — `statusLabels.ts` estendido (checkStatus/document/ticket/training/priority/severity/riskLevel/audience/level/plotStatus + helper `label()` + occurrence 'monitoring'). Aplicação nos selects/células das 9 páginas: PARCIAL (arquivo pronto; aplicar consumo é o restante).
-- [x] **W6-7** — Acentuação: AdminLayout sidebar + header ("Área", "Inventário", "Manutenção", "Segurança", "Sanitário", "Relatórios", "Cemitérios", "Óbitos"). Rotas/ids preservados. Restante das páginas: PARCIAL.
-- [x] **W6-8** — a11y: aria-label no seletor de unidade (AdminLayout). Botões-ícone de exclusão já ganharam aria-label nas Ondas 0/1/3. Restante (dropdown Esc, carrossel, contraste): PARCIAL.
+- [x] **W6-6** — `statusLabels.ts` estendido (checkStatus/document/ticket/training/priority/severity/riskLevel/audience/level/plotStatus + helper `label()` + occurrence 'monitoring'). COMPLETO: consumo aplicado em todos os selects/células das páginas (incl. `{item.priority}` cru em Maintenance/Operational via `label(priorityLabel, …)`). `<option value>` sempre preservado sem acento.
+- [x] **W6-7** — Acentuação: COMPLETO. 4 varreduras com boundaries `(?<![/\w-])…(?![/\w-])` (rotas/ids/valores de domínio preservados: `publico`, `concessao`, `sanitario` em modules, `servicos` em CatalogCategory, chave `area` de SanitaryCheck, `value="Ossuario"`). Frases "e"→"é"/"so"→"só" corrigidas pontualmente. Grep do Anexo K → só rotas/identificadores restam.
+- [x] **W6-8** — a11y: COMPLETO. `useModal` ganhou focus-trap (Tab/Shift+Tab) + restauração de foco + onClose via ref (evita foco roubado ao digitar); aplicado com `role="dialog"`/`aria-modal`/`aria-labelledby` + Esc em TODOS os modais de página (AdminDashboard, AgentsPage, CemeteryList, CemeteryDetail×2, MaintenancePage, PartnersPage, InventoryPage×2, GardenOfMemories×2, ShopAndServices carrinho+checkout; ConfirmDialog/CommunicatedDeaths já tinham). aria-label em todos os botões só-ícone e em todos os inputs/textareas/selects sem label programático (scripts: placeholder→aria-label, title→aria-label, select value={campo}→mapa PT).
 - [x] **W6-9** — Testes unitários: `tests/unit/fileValidation.test.ts`, `formatters.test.ts`, `publicProjection.test.ts` (LGPD whitelist — PUBLIC_FIELDS exportado). **`npm test` → 9/9 PASSOU.** (snapshot.test.ts requer refactor computeSnapshotFromData — deferido.)
 - [x] **W6-10** — Identidade: package.json name=memorialos, version=1.0.0, description. index.html meta description. README já atualizado (OpenRouter/set-superadmin.cjs) na Onda 0.
 
@@ -157,7 +157,6 @@ Pré-verificação pendente (W2-1 passo 1): script Admin SDK listando claims PT 
 - [ ] **W6-1** — TS strict (strictNullChecks/noImplicitAny/noUnusedLocals) + @types/react. ~100-200 erros esperados; fazer por camada com PR dedicado. (~5772)
 - [ ] **W6-2** — ESLint flat config + Prettier + husky/lint-staged + passo no CI. Infra. (~5850)
 - [ ] **W6-3** — Tipar os ~95 `any` (useState<any[]> → tipos dos services). Mecânico, grande. (~5917)
-- Restante das aplicações de W6-6/W6-7/W6-8 (varredura completa de labels/acentos/a11y nas 9 páginas).
 
 `npx tsc --noEmit` (raiz) → EXIT 0. `functions` tsc → EXIT 0. `npm test` → 9/9. `npm run build` → OK.
 

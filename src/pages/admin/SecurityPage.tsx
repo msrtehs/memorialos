@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import { useAdmin } from '@/contexts/AdminContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { createOccurrenceRecord, listOccurrenceRecords, updateSCIRecord } from '@/services/sciService';
+import { severityLabel, label } from '@/lib/statusLabels';
 
 // Permissões EFETIVAS desta versão — espelho fiel das rules pós-Onda 2 (validado em W2-11).
 const effectivePermissions = [
@@ -101,7 +102,7 @@ export default function SecurityPage() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center flex-wrap gap-4">
-        <h1 className="text-2xl font-bold text-slate-800">Seguranca e acesso</h1>
+        <h1 className="text-2xl font-bold text-slate-800">Segurança e acesso</h1>
         <div className={`flex items-center gap-2 text-sm px-3 py-1 rounded-full border ${activeCount === 0 ? 'text-green-600 bg-green-50 border-green-100' : 'text-red-600 bg-red-50 border-red-100'}`}>
           <span className={`w-2 h-2 rounded-full ${activeCount === 0 ? 'bg-green-500' : 'bg-red-500 animate-pulse'}`}></span>
           {activeCount === 0 ? 'Sem incidentes ativos' : `${activeCount} incidente(s) ativo(s)`}
@@ -123,7 +124,7 @@ export default function SecurityPage() {
             {!loading && scopedEvents.map((item) => (
               <div key={item.id} className={`p-3 rounded-lg border ${item.status === 'resolved' ? 'bg-slate-50 border-slate-200' : 'bg-red-50 border-red-100'}`}>
                 <div className="flex justify-between items-start mb-1">
-                  <span className={`text-xs font-bold uppercase ${item.status === 'resolved' ? 'text-slate-600' : 'text-red-700'}`}>{item.severity}</span>
+                  <span className={`text-xs font-bold uppercase ${item.status === 'resolved' ? 'text-slate-600' : 'text-red-700'}`}>{label(severityLabel, item.severity)}</span>
                   <span className="text-[10px] text-slate-400">{item.openedAt || ''}</span>
                 </div>
                 <p className="text-sm font-medium text-slate-800">{item.title}</p>
@@ -141,7 +142,7 @@ export default function SecurityPage() {
             ))}
             {!loading && scopedEvents.length === 0 && (
               <div className="p-3 rounded-lg border border-dashed border-slate-300 text-center text-xs text-slate-500">
-                Sem incidentes de seguranca no periodo.
+                Sem incidentes de segurança no período.
               </div>
             )}
           </div>
@@ -149,18 +150,18 @@ export default function SecurityPage() {
       </div>
 
       <form onSubmit={handleCreateEvent} className="bg-white border border-slate-200 rounded-xl p-4 grid grid-cols-1 md:grid-cols-5 gap-3">
-        <input value={form.title} onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))} className="md:col-span-2 border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Novo alerta / incidente" required />
-        <input value={form.location} onChange={(e) => setForm((prev) => ({ ...prev, location: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Local" />
-        <select value={form.severity} onChange={(e) => setForm((prev) => ({ ...prev, severity: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
+        <input value={form.title} onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))} className="md:col-span-2 border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Novo alerta / incidente" aria-label="Novo alerta / incidente" required />
+        <input value={form.location} onChange={(e) => setForm((prev) => ({ ...prev, location: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Local" aria-label="Local" />
+        <select aria-label="Severidade" value={form.severity} onChange={(e) => setForm((prev) => ({ ...prev, severity: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
           <option value="low">Baixa</option>
-          <option value="medium">Media</option>
+          <option value="medium">Média</option>
           <option value="high">Alta</option>
-          <option value="critical">Critica</option>
+          <option value="critical">Crítica</option>
         </select>
         <button type="submit" disabled={saving || selectedCemeteryId === 'all'} title={selectedCemeteryId === 'all' ? 'Selecione uma unidade' : undefined} className="bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed">
           Registrar evento
         </button>
-        <textarea value={form.description} onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))} className="md:col-span-5 border border-slate-300 rounded-lg px-3 py-2 text-sm h-20" placeholder="Descricao detalhada do evento (opcional)" />
+        <textarea value={form.description} onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))} className="md:col-span-5 border border-slate-300 rounded-lg px-3 py-2 text-sm h-20" placeholder="Descrição detalhada do evento (opcional)" aria-label="Descrição detalhada do evento (opcional)" />
       </form>
 
       <div className="bg-white border border-slate-200 rounded-xl p-5">

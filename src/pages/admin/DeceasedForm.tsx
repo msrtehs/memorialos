@@ -15,7 +15,7 @@ const schema = z.object({
   name: z.string().min(3, 'Nome obrigatorio'),
   dateOfBirth: z.string().refine((val) => !isNaN(Date.parse(val)), 'Data invalida'),
   dateOfDeath: z.string().refine((val) => !isNaN(Date.parse(val)), 'Data invalida'),
-  cemeteryId: z.string().min(1, 'Selecione um cemiterio'),
+  cemeteryId: z.string().min(1, 'Selecione um cemitério'),
   plotId: z.string().optional(),
   causeOfDeath: z.string().optional(),
   city: z.string().optional(),
@@ -157,9 +157,9 @@ export default function DeceasedForm() {
         </Link>
         <div>
           <h1 className="text-2xl font-bold text-slate-900">
-            {isEditMode ? 'Editar registro de obito' : 'Novo registro de obito'}
+            {isEditMode ? 'Editar registro de óbito' : 'Novo registro de óbito'}
           </h1>
-          <p className="text-slate-500">Cadastro digital detalhado e anexacao documental.</p>
+          <p className="text-slate-500">Cadastro digital detalhado e anexação documental.</p>
         </div>
       </div>
 
@@ -199,9 +199,9 @@ export default function DeceasedForm() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <input {...register('city')} className="px-4 py-2 border border-slate-200 rounded-lg" placeholder="Cidade" />
-            <input {...register('state')} className="px-4 py-2 border border-slate-200 rounded-lg" placeholder="UF" />
-            <input {...register('profession')} className="px-4 py-2 border border-slate-200 rounded-lg" placeholder="Profissao" />
+            <input {...register('city')} className="px-4 py-2 border border-slate-200 rounded-lg" placeholder="Cidade" aria-label="Cidade" />
+            <input {...register('state')} className="px-4 py-2 border border-slate-200 rounded-lg" placeholder="UF" aria-label="UF" />
+            <input {...register('profession')} className="px-4 py-2 border border-slate-200 rounded-lg" placeholder="Profissao" aria-label="Profissao" />
           </div>
 
           <div>
@@ -209,13 +209,13 @@ export default function DeceasedForm() {
             <input
               {...register('causeOfDeath')}
               className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-500 outline-none"
-              placeholder="Ex: insuficiencia respiratoria"
+              placeholder="Ex: insuficiência respiratória"
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Familiares</label>
-            <textarea {...register('familyMembers')} className="w-full px-4 py-2 border border-slate-200 rounded-lg h-20" placeholder="Responsaveis, parentes e contatos" />
+            <textarea {...register('familyMembers')} className="w-full px-4 py-2 border border-slate-200 rounded-lg h-20" placeholder="Responsaveis, parentes e contatos" aria-label="Responsaveis, parentes e contatos" />
           </div>
         </div>
 
@@ -223,8 +223,8 @@ export default function DeceasedForm() {
           <h3 className="text-lg font-medium text-slate-900 border-b border-slate-100 pb-2">Sepultamento</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Cemiterio</label>
-              <select
+              <label className="block text-sm font-medium text-slate-700 mb-1">Cemitério</label>
+              <select aria-label="Cemitério"
                 {...register('cemeteryId')}
                 disabled={isEditMode}
                 className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-500 outline-none bg-white disabled:bg-slate-100 disabled:text-slate-400"
@@ -243,10 +243,10 @@ export default function DeceasedForm() {
                   {...register('plotId')}
                   disabled
                   className="w-full px-4 py-2 border border-slate-200 rounded-lg bg-slate-100 text-slate-400"
-                  placeholder="Alteração de jazigo é feita por traslado"
+                  placeholder="Alteração de jazigo é feita por traslado" aria-label="Alteração de jazigo é feita por traslado"
                 />
               ) : (
-                <select
+                <select aria-label="Jazigo"
                   {...register('plotId')}
                   disabled={!selectedCemetery}
                   className="w-full px-4 py-2 border border-slate-200 rounded-lg bg-white disabled:bg-slate-100 disabled:text-slate-400"
@@ -286,7 +286,7 @@ export default function DeceasedForm() {
           )
         ) : (
           <div className="space-y-4">
-            <h3 className="text-lg font-medium text-slate-900 border-b border-slate-100 pb-2">Documentacao</h3>
+            <h3 className="text-lg font-medium text-slate-900 border-b border-slate-100 pb-2">Documentação</h3>
             <div className="border-2 border-dashed border-slate-200 rounded-lg p-6 text-center hover:bg-slate-50 transition-colors cursor-pointer relative">
               <input type="file" multiple onChange={handleFileChange} className="absolute inset-0 opacity-0 cursor-pointer" />
               <Upload className="mx-auto text-slate-400 mb-2" size={24} />

@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { reportError, reportLoadError } from '@/lib/errors';
+import { priorityLabel, label } from '@/lib/statusLabels';
+import { useModal } from '@/hooks/useModal';
 import { AlertTriangle, CheckCircle, ClipboardList, Package, Plus, ArrowDownCircle, ArrowUpCircle } from 'lucide-react';
 import { useAdmin } from '@/contexts/AdminContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -45,6 +47,7 @@ export default function MaintenancePage() {
 
   const [movements, setMovements] = useState<StockMovement[]>([]);
   const [moveModal, setMoveModal] = useState<{ item: any; kind: 'in' | 'out' } | null>(null);
+  const { containerRef: moveModalRef } = useModal(!!moveModal, () => setMoveModal(null));
   const [moveForm, setMoveForm] = useState({ quantity: '', reason: '' });
   const [moving, setMoving] = useState(false);
 
@@ -207,7 +210,7 @@ export default function MaintenancePage() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center flex-wrap gap-4">
-        <h1 className="text-2xl font-bold text-slate-800">Manutencao</h1>
+        <h1 className="text-2xl font-bold text-slate-800">Manutenção</h1>
         <div className="flex bg-white rounded-lg shadow-sm border border-slate-200 p-1">
           <button onClick={() => setTab('tasks')} className={`px-4 py-2 rounded-md flex items-center gap-2 text-sm font-medium ${tab === 'tasks' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}><ClipboardList size={16} /> Ordens</button>
           <button onClick={() => setTab('stock')} className={`px-4 py-2 rounded-md flex items-center gap-2 text-sm font-medium ${tab === 'stock' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}><Package size={16} /> Estoque</button>
@@ -217,16 +220,16 @@ export default function MaintenancePage() {
       {tab === 'tasks' && (
         <div className="space-y-6">
           <form onSubmit={handleCreateTask} className="bg-white border border-slate-200 rounded-xl p-4 grid grid-cols-1 md:grid-cols-6 gap-3">
-            <input value={taskForm.title} onChange={(e) => setTaskForm((prev) => ({ ...prev, title: e.target.value }))} className="md:col-span-2 border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Nova ordem de servico" required />
-            <input value={taskForm.description} onChange={(e) => setTaskForm((prev) => ({ ...prev, description: e.target.value }))} className="md:col-span-2 border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Descricao" />
-            <input value={taskForm.responsible} onChange={(e) => setTaskForm((prev) => ({ ...prev, responsible: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Responsavel" />
-            <input value={taskForm.plotId} onChange={(e) => setTaskForm((prev) => ({ ...prev, plotId: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Jazigo (opcional)" />
+            <input value={taskForm.title} onChange={(e) => setTaskForm((prev) => ({ ...prev, title: e.target.value }))} className="md:col-span-2 border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Nova ordem de serviço" aria-label="Nova ordem de serviço" required />
+            <input value={taskForm.description} onChange={(e) => setTaskForm((prev) => ({ ...prev, description: e.target.value }))} className="md:col-span-2 border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Descrição" aria-label="Descrição" />
+            <input value={taskForm.responsible} onChange={(e) => setTaskForm((prev) => ({ ...prev, responsible: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Responsável" aria-label="Responsável" />
+            <input value={taskForm.plotId} onChange={(e) => setTaskForm((prev) => ({ ...prev, plotId: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Jazigo (opcional)" aria-label="Jazigo (opcional)" />
             <div className="flex gap-2">
-              <select value={taskForm.priority} onChange={(e) => setTaskForm((prev) => ({ ...prev, priority: e.target.value }))} className="border border-slate-300 rounded-lg px-2 py-2 text-sm bg-white">
+              <select aria-label="Prioridade" value={taskForm.priority} onChange={(e) => setTaskForm((prev) => ({ ...prev, priority: e.target.value }))} className="border border-slate-300 rounded-lg px-2 py-2 text-sm bg-white">
                 <option value="low">Baixa</option>
-                <option value="medium">Media</option>
+                <option value="medium">Média</option>
                 <option value="high">Alta</option>
-                <option value="critical">Critica</option>
+                <option value="critical">Crítica</option>
               </select>
               <button type="submit" disabled={saving} className="bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-60 flex items-center gap-1">
                 <Plus size={14} /> Add
@@ -247,7 +250,7 @@ export default function MaintenancePage() {
                     return (
                     <div key={item.id} className={`rounded-lg p-3 shadow-sm border ${isOverdue ? 'bg-rose-50 border-rose-300' : 'bg-white border-slate-200'}`}>
                       <div className="flex justify-between items-start text-xs">
-                        <span className="px-2 py-1 rounded-full bg-slate-100 text-slate-600">{item.priority}</span>
+                        <span className="px-2 py-1 rounded-full bg-slate-100 text-slate-600">{label(priorityLabel, item.priority)}</span>
                         <span className="text-slate-400">{item.scheduledFor || '-'}</span>
                       </div>
                       {isOverdue && (
@@ -256,8 +259,8 @@ export default function MaintenancePage() {
                         </span>
                       )}
                       <p className="font-medium text-slate-800 mt-2">{item.title}</p>
-                      <p className="text-xs text-slate-500 mt-1">{item.description || 'Sem descricao'}</p>
-                      <p className="text-xs text-slate-400 mt-2">Resp.: {item.responsible || 'Nao definido'}</p>
+                      <p className="text-xs text-slate-500 mt-1">{item.description || 'Sem descrição'}</p>
+                      <p className="text-xs text-slate-400 mt-2">Resp.: {item.responsible || 'Não definido'}</p>
                       <div className="mt-3 flex gap-2">
                         {column.key !== 'in_progress' && (
                           <button onClick={() => handleTaskStatus(item.id, 'in_progress')} className="text-xs px-2 py-1 rounded border border-blue-200 bg-blue-50 text-blue-700">Iniciar</button>
@@ -285,12 +288,12 @@ export default function MaintenancePage() {
       {tab === 'stock' && (
         <div className="space-y-5">
           <form onSubmit={handleCreateStockItem} className="bg-white border border-slate-200 rounded-xl p-4 grid grid-cols-1 md:grid-cols-6 gap-3">
-            <input value={stockForm.name} onChange={(e) => setStockForm((prev) => ({ ...prev, name: e.target.value }))} className="md:col-span-2 border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Item" required />
-            <input value={stockForm.category} onChange={(e) => setStockForm((prev) => ({ ...prev, category: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Categoria" />
-            <input value={stockForm.quantity} onChange={(e) => setStockForm((prev) => ({ ...prev, quantity: e.target.value }))} type="number" className="border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Qtd atual" required />
-            <input value={stockForm.minQuantity} onChange={(e) => setStockForm((prev) => ({ ...prev, minQuantity: e.target.value }))} type="number" className="border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Qtd minima" required />
+            <input value={stockForm.name} onChange={(e) => setStockForm((prev) => ({ ...prev, name: e.target.value }))} className="md:col-span-2 border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Item" aria-label="Item" required />
+            <input value={stockForm.category} onChange={(e) => setStockForm((prev) => ({ ...prev, category: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Categoria" aria-label="Categoria" />
+            <input value={stockForm.quantity} onChange={(e) => setStockForm((prev) => ({ ...prev, quantity: e.target.value }))} type="number" className="border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Qtd atual" aria-label="Qtd atual" required />
+            <input value={stockForm.minQuantity} onChange={(e) => setStockForm((prev) => ({ ...prev, minQuantity: e.target.value }))} type="number" className="border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Qtd minima" aria-label="Qtd minima" required />
             <div className="flex gap-2">
-              <input value={stockForm.unit} onChange={(e) => setStockForm((prev) => ({ ...prev, unit: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm w-20" placeholder="un" />
+              <input value={stockForm.unit} onChange={(e) => setStockForm((prev) => ({ ...prev, unit: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm w-20" placeholder="un" aria-label="un" />
               <button type="submit" disabled={saving} className="bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-60 flex items-center gap-1">
                 <Plus size={14} /> Add
               </button>
@@ -320,7 +323,7 @@ export default function MaintenancePage() {
                       <td className="px-4 py-3 text-slate-500">{item.minQuantity} {item.unit}</td>
                       <td className="px-4 py-3">
                         <span className={`px-2 py-1 rounded-full text-xs border ${critical ? 'bg-rose-100 text-rose-700 border-rose-200' : 'bg-emerald-100 text-emerald-700 border-emerald-200'}`}>
-                          {critical ? 'Critico' : 'OK'}
+                          {critical ? 'Crítico' : 'OK'}
                         </span>
                       </td>
                       <td className="px-4 py-3">
@@ -378,8 +381,8 @@ export default function MaintenancePage() {
 
       {moveModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white p-6 rounded-xl w-full max-w-sm">
-            <h2 className="text-lg font-bold mb-1">
+          <div ref={moveModalRef} role="dialog" aria-modal="true" aria-labelledby="move-stock-title" className="bg-white p-6 rounded-xl w-full max-w-sm">
+            <h2 id="move-stock-title" className="text-lg font-bold mb-1">
               {moveModal.kind === 'in' ? 'Entrada de estoque' : 'Baixa de estoque'}
             </h2>
             <p className="text-sm text-slate-500 mb-4">{moveModal.item.name} — atual: {moveModal.item.quantity} {moveModal.item.unit}</p>

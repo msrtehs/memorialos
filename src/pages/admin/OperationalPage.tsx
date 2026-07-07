@@ -18,7 +18,7 @@ import {
   listOperationalRecords,
   updateSCIRecord
 } from '@/services/sciService';
-import { occurrenceStatusLabel, operationalStatusLabel, notificationStatusLabel } from '@/lib/statusLabels';
+import { occurrenceStatusLabel, operationalStatusLabel, notificationStatusLabel, audienceLabel, levelLabel, severityLabel, priorityLabel, label } from '@/lib/statusLabels';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 type OperationalTab =
@@ -34,14 +34,14 @@ type OperationalTab =
 
 const tabConfig: { key: OperationalTab; label: string; icon: any }[] = [
   { key: 'burial', label: 'Sepultamentos', icon: UserRoundCheck },
-  { key: 'exhumation', label: 'Exumacoes', icon: Layers3 },
+  { key: 'exhumation', label: 'Exumações', icon: Layers3 },
   { key: 'schedule', label: 'Agendamentos', icon: CalendarDays },
   { key: 'flow', label: 'Fluxo', icon: Shuffle },
-  { key: 'maintenance', label: 'Manutencao', icon: ClipboardList },
-  { key: 'document_issue', label: 'Emissao docs', icon: FileCheck2 },
-  { key: 'notifications', label: 'Notificacoes', icon: BellRing },
-  { key: 'occurrences', label: 'Ocorrencias', icon: TriangleAlert },
-  { key: 'exhumation_deadlines', label: 'Prazos exumacao', icon: Clock }
+  { key: 'maintenance', label: 'Manutenção', icon: ClipboardList },
+  { key: 'document_issue', label: 'Emissão docs', icon: FileCheck2 },
+  { key: 'notifications', label: 'Notificações', icon: BellRing },
+  { key: 'occurrences', label: 'Ocorrências', icon: TriangleAlert },
+  { key: 'exhumation_deadlines', label: 'Prazos exumação', icon: Clock }
 ];
 
 export default function OperationalPage() {
@@ -304,8 +304,8 @@ export default function OperationalPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-800">Gestao operacional completa</h1>
-        <p className="text-sm text-slate-500">Sepultamentos, exumacoes, agendamentos, fluxo, notificacoes internas e ocorrencias.</p>
+        <h1 className="text-2xl font-bold text-slate-800">Gestão operacional completa</h1>
+        <p className="text-sm text-slate-500">Sepultamentos, exumações, agendamentos, fluxo, notificações internas e ocorrências.</p>
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 p-2 overflow-x-auto">
@@ -327,23 +327,23 @@ export default function OperationalPage() {
 
       {showOperationalForms && (
         <form onSubmit={handleCreateRecord} className="bg-white border border-slate-200 rounded-xl p-4 grid grid-cols-1 md:grid-cols-7 gap-3">
-          <input value={recordForm.title} onChange={(e) => setRecordForm((prev) => ({ ...prev, title: e.target.value }))} className="md:col-span-2 border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Titulo da atividade" required />
-          <input value={recordForm.description} onChange={(e) => setRecordForm((prev) => ({ ...prev, description: e.target.value }))} className="md:col-span-2 border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Descricao" />
-          <input value={recordForm.responsible} onChange={(e) => setRecordForm((prev) => ({ ...prev, responsible: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Responsavel" />
+          <input value={recordForm.title} onChange={(e) => setRecordForm((prev) => ({ ...prev, title: e.target.value }))} className="md:col-span-2 border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Título da atividade" aria-label="Título da atividade" required />
+          <input value={recordForm.description} onChange={(e) => setRecordForm((prev) => ({ ...prev, description: e.target.value }))} className="md:col-span-2 border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Descrição" aria-label="Descrição" />
+          <input value={recordForm.responsible} onChange={(e) => setRecordForm((prev) => ({ ...prev, responsible: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Responsável" aria-label="Responsável" />
           <input type="date" min={today} value={recordForm.scheduledFor} onChange={(e) => setRecordForm((prev) => ({ ...prev, scheduledFor: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm" />
           <div className="flex gap-2">
-            <select value={recordForm.priority} onChange={(e) => setRecordForm((prev) => ({ ...prev, priority: e.target.value }))} className="border border-slate-300 rounded-lg px-2 py-2 text-sm bg-white">
+            <select aria-label="Prioridade" value={recordForm.priority} onChange={(e) => setRecordForm((prev) => ({ ...prev, priority: e.target.value }))} className="border border-slate-300 rounded-lg px-2 py-2 text-sm bg-white">
               <option value="low">Baixa</option>
-              <option value="medium">Media</option>
+              <option value="medium">Média</option>
               <option value="high">Alta</option>
-              <option value="critical">Critica</option>
+              <option value="critical">Crítica</option>
             </select>
             <button type="submit" disabled={saving} className="bg-blue-600 text-white rounded-lg px-3 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-60 flex items-center gap-1">
               <Plus size={14} /> Add
             </button>
           </div>
           {plotTabs.includes(tab) && (
-            <select
+            <select aria-label="Jazigo"
               value={recordForm.plotId}
               onChange={(e) => setRecordForm((prev) => ({ ...prev, plotId: e.target.value }))}
               disabled={selectedCemeteryId === 'all'}
@@ -361,32 +361,32 @@ export default function OperationalPage() {
       {tab === 'notifications' && (
         <div className="space-y-4">
           <form onSubmit={handleCreateNotification} className="bg-white border border-slate-200 rounded-xl p-4 grid grid-cols-1 md:grid-cols-6 gap-3">
-            <input value={notificationForm.title} onChange={(e) => setNotificationForm((prev) => ({ ...prev, title: e.target.value }))} className="md:col-span-2 border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Titulo da notificacao" required />
-            <select value={notificationForm.audience} onChange={(e) => setNotificationForm((prev) => ({ ...prev, audience: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
+            <input value={notificationForm.title} onChange={(e) => setNotificationForm((prev) => ({ ...prev, title: e.target.value }))} className="md:col-span-2 border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Título da notificação" aria-label="Título da notificação" required />
+            <select aria-label="Público-alvo" value={notificationForm.audience} onChange={(e) => setNotificationForm((prev) => ({ ...prev, audience: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
               <option value="all">Todos</option>
               <option value="operators">Operadores</option>
               <option value="environmental">Equipe ambiental</option>
-              <option value="security">Seguranca</option>
-              <option value="management">Gestao</option>
+              <option value="security">Segurança</option>
+              <option value="management">Gestão</option>
             </select>
-            <select value={notificationForm.level} onChange={(e) => setNotificationForm((prev) => ({ ...prev, level: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
-              <option value="info">Info</option>
-              <option value="warning">Warning</option>
-              <option value="critical">Critical</option>
+            <select aria-label="Nível" value={notificationForm.level} onChange={(e) => setNotificationForm((prev) => ({ ...prev, level: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
+              <option value="info">{levelLabel.info}</option>
+              <option value="warning">{levelLabel.warning}</option>
+              <option value="critical">{levelLabel.critical}</option>
             </select>
             <button type="submit" disabled={saving} className="bg-blue-600 text-white rounded-lg px-3 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-60">
               Publicar
             </button>
-            <textarea value={notificationForm.message} onChange={(e) => setNotificationForm((prev) => ({ ...prev, message: e.target.value }))} className="md:col-span-6 border border-slate-300 rounded-lg px-3 py-2 text-sm h-24" placeholder="Mensagem interna" required />
+            <textarea value={notificationForm.message} onChange={(e) => setNotificationForm((prev) => ({ ...prev, message: e.target.value }))} className="md:col-span-6 border border-slate-300 rounded-lg px-3 py-2 text-sm h-24" placeholder="Mensagem interna" aria-label="Mensagem interna" required />
           </form>
 
           <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto">
             <table className="w-full min-w-[760px] text-sm text-left">
               <thead className="bg-slate-50 border-b border-slate-200 text-slate-700">
                 <tr>
-                  <th className="px-4 py-3">Titulo</th>
-                  <th className="px-4 py-3">Publico</th>
-                  <th className="px-4 py-3">Nivel</th>
+                  <th className="px-4 py-3">Título</th>
+                  <th className="px-4 py-3">Público</th>
+                  <th className="px-4 py-3">Nível</th>
                   <th className="px-4 py-3">Status</th>
                 </tr>
               </thead>
@@ -394,10 +394,10 @@ export default function OperationalPage() {
                 {scopedNotifications.map((item) => (
                   <tr key={item.id}>
                     <td className="px-4 py-3 font-medium text-slate-900">{item.title}</td>
-                    <td className="px-4 py-3 text-slate-600">{item.audience}</td>
-                    <td className="px-4 py-3 text-slate-600">{item.level}</td>
+                    <td className="px-4 py-3 text-slate-600">{label(audienceLabel, item.audience)}</td>
+                    <td className="px-4 py-3 text-slate-600">{label(levelLabel, item.level)}</td>
                     <td className="px-4 py-3">
-                      <select value={item.status} onChange={(e) => handleStatusUpdate('sci_internal_notifications', item.id, e.target.value)} className="border border-slate-300 rounded px-2 py-1 text-xs bg-white">
+                      <select aria-label="Status" value={item.status} onChange={(e) => handleStatusUpdate('sci_internal_notifications', item.id, e.target.value)} className="border border-slate-300 rounded px-2 py-1 text-xs bg-white">
                         <option value="draft">{notificationStatusLabel.draft}</option>
                         <option value="sent">{notificationStatusLabel.sent}</option>
                         <option value="archived">{notificationStatusLabel.archived}</option>
@@ -406,7 +406,7 @@ export default function OperationalPage() {
                   </tr>
                 ))}
                 {!loading && scopedNotifications.length === 0 && (
-                  <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-500">Sem notificacoes internas.</td></tr>
+                  <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-500">Sem notificações internas.</td></tr>
                 )}
               </tbody>
             </table>
@@ -417,41 +417,41 @@ export default function OperationalPage() {
       {tab === 'occurrences' && (
         <div className="space-y-4">
           <form onSubmit={handleCreateOccurrence} className="bg-white border border-slate-200 rounded-xl p-4 grid grid-cols-1 md:grid-cols-6 gap-3">
-            <input value={occurrenceForm.title} onChange={(e) => setOccurrenceForm((prev) => ({ ...prev, title: e.target.value }))} className="md:col-span-2 border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Titulo da ocorrencia" required />
-            <select value={occurrenceForm.category} onChange={(e) => setOccurrenceForm((prev) => ({ ...prev, category: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
+            <input value={occurrenceForm.title} onChange={(e) => setOccurrenceForm((prev) => ({ ...prev, title: e.target.value }))} className="md:col-span-2 border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Título da ocorrência" aria-label="Título da ocorrência" required />
+            <select aria-label="Categoria" value={occurrenceForm.category} onChange={(e) => setOccurrenceForm((prev) => ({ ...prev, category: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
               <option value="operational">Operacional</option>
               <option value="structural">Estrutural</option>
-              <option value="sanitary">Sanitario</option>
+              <option value="sanitary">Sanitário</option>
               <option value="environmental">Ambiental</option>
-              <option value="security">Seguranca</option>
+              <option value="security">Segurança</option>
               <option value="cleaning">Limpeza</option>
-              <option value="lighting">Iluminacao</option>
-              <option value="vegetation">Vegetacao</option>
+              <option value="lighting">Iluminação</option>
+              <option value="vegetation">Vegetação</option>
             </select>
-            <select value={occurrenceForm.severity} onChange={(e) => setOccurrenceForm((prev) => ({ ...prev, severity: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
+            <select aria-label="Severidade" value={occurrenceForm.severity} onChange={(e) => setOccurrenceForm((prev) => ({ ...prev, severity: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
               <option value="low">Baixa</option>
-              <option value="medium">Media</option>
+              <option value="medium">Média</option>
               <option value="high">Alta</option>
-              <option value="critical">Critica</option>
+              <option value="critical">Crítica</option>
             </select>
-            <input value={occurrenceForm.location} onChange={(e) => setOccurrenceForm((prev) => ({ ...prev, location: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Local" />
+            <input value={occurrenceForm.location} onChange={(e) => setOccurrenceForm((prev) => ({ ...prev, location: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Local" aria-label="Local" />
             <button type="submit" disabled={saving} className="bg-blue-600 text-white rounded-lg px-3 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-60">
               Registrar
             </button>
-            <input value={occurrenceForm.plotId} onChange={(e) => setOccurrenceForm((prev) => ({ ...prev, plotId: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="ID do jazigo (opcional)" />
-            <input value={occurrenceForm.sectorId} onChange={(e) => setOccurrenceForm((prev) => ({ ...prev, sectorId: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Setor (opcional)" />
+            <input value={occurrenceForm.plotId} onChange={(e) => setOccurrenceForm((prev) => ({ ...prev, plotId: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="ID do jazigo (opcional)" aria-label="ID do jazigo (opcional)" />
+            <input value={occurrenceForm.sectorId} onChange={(e) => setOccurrenceForm((prev) => ({ ...prev, sectorId: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Setor (opcional)" aria-label="Setor (opcional)" />
             <div className="md:col-span-2">
               <label className="text-xs text-slate-500 block mb-1">Prazo SLA</label>
               <input type="date" value={occurrenceForm.slaDeadline} onChange={(e) => setOccurrenceForm((prev) => ({ ...prev, slaDeadline: e.target.value }))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" />
             </div>
-            <textarea value={occurrenceForm.description} onChange={(e) => setOccurrenceForm((prev) => ({ ...prev, description: e.target.value }))} className="md:col-span-6 border border-slate-300 rounded-lg px-3 py-2 text-sm h-24" placeholder="Descricao detalhada" />
+            <textarea value={occurrenceForm.description} onChange={(e) => setOccurrenceForm((prev) => ({ ...prev, description: e.target.value }))} className="md:col-span-6 border border-slate-300 rounded-lg px-3 py-2 text-sm h-24" placeholder="Descrição detalhada" aria-label="Descrição detalhada" />
           </form>
 
           <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto">
             <table className="w-full min-w-[860px] text-sm text-left">
               <thead className="bg-slate-50 border-b border-slate-200 text-slate-700">
                 <tr>
-                  <th className="px-4 py-3">Titulo</th>
+                  <th className="px-4 py-3">Título</th>
                   <th className="px-4 py-3">Categoria</th>
                   <th className="px-4 py-3">Severidade</th>
                   <th className="px-4 py-3">Local</th>
@@ -467,7 +467,7 @@ export default function OperationalPage() {
                     <tr key={item.id}>
                       <td className="px-4 py-3 font-medium text-slate-900">{item.title}</td>
                       <td className="px-4 py-3 text-slate-600">{item.category}</td>
-                      <td className="px-4 py-3 text-slate-600">{item.severity}</td>
+                      <td className="px-4 py-3 text-slate-600">{label(severityLabel, item.severity)}</td>
                       <td className="px-4 py-3 text-slate-600">{item.location || '-'}</td>
                       <td className="px-4 py-3 text-xs">
                         {sla ? (
@@ -475,7 +475,7 @@ export default function OperationalPage() {
                         ) : '-'}
                       </td>
                       <td className="px-4 py-3">
-                        <select value={item.status} onChange={(e) => handleStatusUpdate('sci_occurrences', item.id, e.target.value)} className="border border-slate-300 rounded px-2 py-1 text-xs bg-white">
+                        <select aria-label="Status" value={item.status} onChange={(e) => handleStatusUpdate('sci_occurrences', item.id, e.target.value)} className="border border-slate-300 rounded px-2 py-1 text-xs bg-white">
                           <option value="open">{occurrenceStatusLabel.open}</option>
                           <option value="in_analysis">{occurrenceStatusLabel.in_analysis}</option>
                           <option value="resolved">{occurrenceStatusLabel.resolved}</option>
@@ -485,7 +485,7 @@ export default function OperationalPage() {
                   );
                 })}
                 {!loading && scopedOccurrences.length === 0 && (
-                  <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500">Sem ocorrencias registradas.</td></tr>
+                  <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500">Sem ocorrências registradas.</td></tr>
                 )}
               </tbody>
             </table>
@@ -537,7 +537,7 @@ export default function OperationalPage() {
           </div>
 
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-            <h3 className="font-semibold text-amber-800 mb-3 flex items-center gap-2"><Clock size={16} /> Proximos 6 meses</h3>
+            <h3 className="font-semibold text-amber-800 mb-3 flex items-center gap-2"><Clock size={16} /> Próximos 6 meses</h3>
             {exhumationAlerts?.approaching.length ? (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[640px] text-sm text-left">
@@ -564,7 +564,7 @@ export default function OperationalPage() {
                 </table>
               </div>
             ) : (
-              <p className="text-sm text-amber-700">Nenhuma exumacao proxima do prazo nos proximos 6 meses.</p>
+              <p className="text-sm text-amber-700">Nenhuma exumação próxima do prazo nos próximos 6 meses.</p>
             )}
           </div>
         </div>
@@ -575,8 +575,8 @@ export default function OperationalPage() {
           <table className="w-full min-w-[760px] text-sm text-left">
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-700">
               <tr>
-                <th className="px-4 py-3">Titulo</th>
-                <th className="px-4 py-3">Responsavel</th>
+                <th className="px-4 py-3">Título</th>
+                <th className="px-4 py-3">Responsável</th>
                 <th className="px-4 py-3">Agendado</th>
                 <th className="px-4 py-3">Prioridade</th>
                 <th className="px-4 py-3">Status</th>
@@ -588,9 +588,9 @@ export default function OperationalPage() {
                   <td className="px-4 py-3 font-medium text-slate-900">{item.title}</td>
                   <td className="px-4 py-3 text-slate-600">{item.responsible || '-'}</td>
                   <td className="px-4 py-3 text-slate-600">{item.scheduledFor || '-'}</td>
-                  <td className="px-4 py-3 text-slate-600">{item.priority}</td>
+                  <td className="px-4 py-3 text-slate-600">{label(priorityLabel, item.priority)}</td>
                   <td className="px-4 py-3">
-                    <select value={item.status} onChange={(e) => handleStatusUpdate('sci_operational_records', item.id, e.target.value)} className="border border-slate-300 rounded px-2 py-1 text-xs bg-white">
+                    <select aria-label="Status" value={item.status} onChange={(e) => handleStatusUpdate('sci_operational_records', item.id, e.target.value)} className="border border-slate-300 rounded px-2 py-1 text-xs bg-white">
                       <option value="planned">{operationalStatusLabel.planned}</option>
                       <option value="in_progress">{operationalStatusLabel.in_progress}</option>
                       <option value="done">{operationalStatusLabel.done}</option>

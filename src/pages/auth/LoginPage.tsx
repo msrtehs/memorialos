@@ -95,7 +95,7 @@ export default function LoginPage() {
               {...register('email')}
               type="email"
               className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-              placeholder="seu@email.com"
+              placeholder="seu@email.com" aria-label="seu@email.com"
             />
             {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
           </div>
@@ -106,7 +106,7 @@ export default function LoginPage() {
               {...register('password')}
               type="password"
               className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-              placeholder="••••••••"
+              placeholder="••••••••" aria-label="••••••••"
             />
             {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
             <div className="text-right mt-1">
@@ -129,13 +129,13 @@ export default function LoginPage() {
                 </div>
               ) : (
                 <form onSubmit={handleResetPassword} className="space-y-2">
-                  <p className="text-xs text-slate-600">Digite seu e-mail para receber o link de recuperacao:</p>
+                  <p className="text-xs text-slate-600">Digite seu e-mail para receber o link de recuperação:</p>
                   <div className="flex gap-2">
                     <input
                       type="email"
                       value={resetEmail}
                       onChange={(e) => setResetEmail(e.target.value)}
-                      placeholder="seu@email.com"
+                      placeholder="seu@email.com" aria-label="seu@email.com"
                       className="flex-1 px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                       required
                     />
@@ -169,7 +169,7 @@ export default function LoginPage() {
         </form>
 
         <div className="mt-6 text-center text-sm text-slate-500">
-          <p>Nao tem uma conta? <Link to="/cadastro" className="text-blue-600 font-medium hover:underline">Cadastre-se</Link></p>
+          <p>Não tem uma conta? <Link to="/cadastro" className="text-blue-600 font-medium hover:underline">Cadastre-se</Link></p>
         </div>
 
         {/* Acesso institucional discreto */}
@@ -184,7 +184,7 @@ export default function LoginPage() {
 
           {showInstitutional && (
             <p className="mt-3 text-xs text-slate-400 text-center leading-relaxed">
-              Gestores e administradores devem utilizar o formulario acima com as credenciais fornecidas pela administracao do sistema. O redirecionamento e automatico conforme o perfil.
+              Gestores e administradores devem utilizar o formulário acima com as credenciais fornecidas pela administração do sistema. O redirecionamento é automático conforme o perfil.
             </p>
           )}
         </div>

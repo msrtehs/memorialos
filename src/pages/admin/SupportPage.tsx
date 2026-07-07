@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { reportLoadError } from '@/lib/errors';
+import { ticketStatusLabel, trainingStatusLabel, priorityLabel, label } from '@/lib/statusLabels';
 import { BookOpenCheck, LifeBuoy, Plus } from 'lucide-react';
 import { useAdmin } from '@/contexts/AdminContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -150,7 +151,7 @@ export default function SupportPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-800">Suporte e treinamento</h1>
-        <p className="text-sm text-slate-500">Central de chamados e agenda de capacitacao para equipes da prefeitura.</p>
+        <p className="text-sm text-slate-500">Central de chamados e agenda de capacitação para equipes da prefeitura.</p>
       </div>
 
       <div className="flex bg-white rounded-lg shadow-sm border border-slate-200 p-1 w-fit">
@@ -165,21 +166,21 @@ export default function SupportPage() {
       {tab === 'support' && (
         <div className="space-y-4">
           <form onSubmit={handleCreateTicket} className="bg-white border border-slate-200 rounded-xl p-4 grid grid-cols-1 md:grid-cols-6 gap-3">
-            <input value={ticketForm.title} onChange={(e) => setTicketForm((prev) => ({ ...prev, title: e.target.value }))} className="md:col-span-2 border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Titulo do chamado" required />
-            <select value={ticketForm.category} onChange={(e) => setTicketForm((prev) => ({ ...prev, category: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
-              <option value="support">Suporte tecnico</option>
+            <input value={ticketForm.title} onChange={(e) => setTicketForm((prev) => ({ ...prev, title: e.target.value }))} className="md:col-span-2 border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Título do chamado" aria-label="Título do chamado" required />
+            <select aria-label="Categoria" value={ticketForm.category} onChange={(e) => setTicketForm((prev) => ({ ...prev, category: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
+              <option value="support">Suporte técnico</option>
               <option value="training">Dificuldade de uso</option>
             </select>
-            <select value={ticketForm.priority} onChange={(e) => setTicketForm((prev) => ({ ...prev, priority: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
+            <select aria-label="Prioridade" value={ticketForm.priority} onChange={(e) => setTicketForm((prev) => ({ ...prev, priority: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
               <option value="low">Baixa</option>
-              <option value="medium">Media</option>
+              <option value="medium">Média</option>
               <option value="high">Alta</option>
-              <option value="critical">Critica</option>
+              <option value="critical">Crítica</option>
             </select>
             <button type="submit" disabled={saving} className="bg-blue-600 text-white rounded-lg px-3 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-60 flex items-center justify-center gap-1">
               <Plus size={14} /> Abrir chamado
             </button>
-            <textarea value={ticketForm.details} onChange={(e) => setTicketForm((prev) => ({ ...prev, details: e.target.value }))} className="md:col-span-6 border border-slate-300 rounded-lg px-3 py-2 text-sm h-24" placeholder="Descreva o problema ou necessidade de suporte" required />
+            <textarea value={ticketForm.details} onChange={(e) => setTicketForm((prev) => ({ ...prev, details: e.target.value }))} className="md:col-span-6 border border-slate-300 rounded-lg px-3 py-2 text-sm h-24" placeholder="Descreva o problema ou necessidade de suporte" aria-label="Descreva o problema ou necessidade de suporte" required />
           </form>
 
           <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto">
@@ -200,12 +201,12 @@ export default function SupportPage() {
                   <tr key={ticket.id}>
                     <td className="px-4 py-3 font-medium text-slate-900">{ticket.title}</td>
                     <td className="px-4 py-3 text-slate-600">{ticket.category}</td>
-                    <td className="px-4 py-3 text-slate-600">{ticket.priority}</td>
+                    <td className="px-4 py-3 text-slate-600">{label(priorityLabel, ticket.priority)}</td>
                     <td className="px-4 py-3">
-                      <select value={ticket.status} onChange={(e) => updateStatus('sci_support_tickets', ticket.id, e.target.value)} className="border border-slate-300 rounded px-2 py-1 text-xs bg-white">
-                        <option value="open">open</option>
-                        <option value="in_progress">in_progress</option>
-                        <option value="done">done</option>
+                      <select value={ticket.status} onChange={(e) => updateStatus('sci_support_tickets', ticket.id, e.target.value)} aria-label="Status do chamado" className="border border-slate-300 rounded px-2 py-1 text-xs bg-white">
+                        {Object.entries(ticketStatusLabel).map(([value, text]) => (
+                          <option key={value} value={value}>{text}</option>
+                        ))}
                       </select>
                     </td>
                   </tr>
@@ -222,17 +223,17 @@ export default function SupportPage() {
       {tab === 'training' && (
         <div className="space-y-4">
           <form onSubmit={handleCreateTraining} className="bg-white border border-slate-200 rounded-xl p-4 grid grid-cols-1 md:grid-cols-6 gap-3">
-            <input value={trainingForm.title} onChange={(e) => setTrainingForm((prev) => ({ ...prev, title: e.target.value }))} className="md:col-span-2 border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Titulo do treinamento" required />
+            <input value={trainingForm.title} onChange={(e) => setTrainingForm((prev) => ({ ...prev, title: e.target.value }))} className="md:col-span-2 border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Título do treinamento" aria-label="Título do treinamento" required />
             <input type="date" value={trainingForm.date} onChange={(e) => setTrainingForm((prev) => ({ ...prev, date: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm" />
-            <select value={trainingForm.modality} onChange={(e) => setTrainingForm((prev) => ({ ...prev, modality: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
+            <select aria-label="Modalidade" value={trainingForm.modality} onChange={(e) => setTrainingForm((prev) => ({ ...prev, modality: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
               <option value="online">Online</option>
               <option value="presencial">Presencial</option>
             </select>
-            <input value={trainingForm.targetAudience} onChange={(e) => setTrainingForm((prev) => ({ ...prev, targetAudience: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Publico-alvo" required />
+            <input value={trainingForm.targetAudience} onChange={(e) => setTrainingForm((prev) => ({ ...prev, targetAudience: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Público-alvo" aria-label="Público-alvo" required />
             <button type="submit" disabled={saving} className="bg-blue-600 text-white rounded-lg px-3 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-60 flex items-center justify-center gap-1">
               <Plus size={14} /> Agendar
             </button>
-            <textarea value={trainingForm.notes} onChange={(e) => setTrainingForm((prev) => ({ ...prev, notes: e.target.value }))} className="md:col-span-6 border border-slate-300 rounded-lg px-3 py-2 text-sm h-24" placeholder="Conteudo programatico / observacoes" />
+            <textarea value={trainingForm.notes} onChange={(e) => setTrainingForm((prev) => ({ ...prev, notes: e.target.value }))} className="md:col-span-6 border border-slate-300 rounded-lg px-3 py-2 text-sm h-24" placeholder="Conteúdo programático / observações" aria-label="Conteúdo programático / observações" />
           </form>
 
           <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto">
@@ -242,7 +243,7 @@ export default function SupportPage() {
                   <th className="px-4 py-3">Treinamento</th>
                   <th className="px-4 py-3">Data</th>
                   <th className="px-4 py-3">Modalidade</th>
-                  <th className="px-4 py-3">Publico</th>
+                  <th className="px-4 py-3">Público</th>
                   <th className="px-4 py-3">Status</th>
                 </tr>
               </thead>
@@ -257,9 +258,10 @@ export default function SupportPage() {
                     <td className="px-4 py-3 text-slate-600">{session.modality}</td>
                     <td className="px-4 py-3 text-slate-600">{session.targetAudience}</td>
                     <td className="px-4 py-3">
-                      <select value={session.status} onChange={(e) => updateStatus('sci_training_sessions', session.id, e.target.value)} className="border border-slate-300 rounded px-2 py-1 text-xs bg-white">
-                        <option value="planned">planned</option>
-                        <option value="completed">completed</option>
+                      <select value={session.status} onChange={(e) => updateStatus('sci_training_sessions', session.id, e.target.value)} aria-label="Status do treinamento" className="border border-slate-300 rounded px-2 py-1 text-xs bg-white">
+                        {Object.entries(trainingStatusLabel).map(([value, text]) => (
+                          <option key={value} value={value}>{text}</option>
+                        ))}
                       </select>
                     </td>
                   </tr>

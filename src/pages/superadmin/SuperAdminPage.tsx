@@ -362,7 +362,7 @@ export default function SuperAdminPage() {
                       setCreateData((p) => ({ ...p, managerEmail: e.target.value }))
                     }
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                    placeholder="gestor@prefeitura.gov.br"
+                    placeholder="gestor@prefeitura.gov.br" aria-label="gestor@prefeitura.gov.br"
                     required
                   />
                 </div>
@@ -377,7 +377,7 @@ export default function SuperAdminPage() {
                       setCreateData((p) => ({ ...p, temporaryPassword: e.target.value }))
                     }
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                    placeholder="Mínimo 6 caracteres"
+                    placeholder="Mínimo 6 caracteres" aria-label="Mínimo 6 caracteres"
                     minLength={6}
                     required
                   />
@@ -457,7 +457,7 @@ export default function SuperAdminPage() {
                       <button
                         onClick={() => handleToggleExpand(tenant.id)}
                         className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-blue-600 px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors"
-                        title="Ver usuários"
+                        title="Ver usuários" aria-label="Ver usuários"
                       >
                         <Users size={15} />
                         <span className="hidden sm:inline">Usuários</span>
@@ -486,7 +486,7 @@ export default function SuperAdminPage() {
                         onClick={() => handleDeleteTenant(tenant)}
                         disabled={tenantActionLoading === tenant.id}
                         className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-red-600 px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-40"
-                        title="Excluir prefeitura e todos os logins"
+                        title="Excluir prefeitura e todos os logins" aria-label="Excluir prefeitura e todos os logins"
                       >
                         <Trash2 size={16} />
                         <span className="hidden sm:inline">Excluir</span>
@@ -545,7 +545,7 @@ export default function SuperAdminPage() {
                                     setAddUserData((p) => ({ ...p, email: e.target.value }))
                                   }
                                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                                  placeholder="gestor2@prefeitura.gov.br"
+                                  placeholder="gestor2@prefeitura.gov.br" aria-label="gestor2@prefeitura.gov.br"
                                   required
                                 />
                               </div>
@@ -560,7 +560,7 @@ export default function SuperAdminPage() {
                                     setAddUserData((p) => ({ ...p, password: e.target.value }))
                                   }
                                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                                  placeholder="Mínimo 6 caracteres"
+                                  placeholder="Mínimo 6 caracteres" aria-label="Mínimo 6 caracteres"
                                   minLength={6}
                                   required
                                 />
@@ -665,7 +665,7 @@ export default function SuperAdminPage() {
                                   onClick={() => handleDeleteUser(u)}
                                   disabled={userActionLoading === u.id}
                                   className="flex items-center gap-1 text-xs text-slate-500 hover:text-red-600 px-2 py-1.5 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-40"
-                                  title="Excluir este login"
+                                  title="Excluir este login" aria-label="Excluir este login"
                                 >
                                   <Trash2 size={14} />
                                   <span className="hidden sm:inline">Excluir</span>

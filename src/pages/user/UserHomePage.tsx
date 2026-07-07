@@ -5,21 +5,21 @@ import { Link } from 'react-router-dom';
 const slides = [
   {
     id: 's1',
-    title: 'Um espaco para lembrar com serenidade',
-    subtitle: 'Mantenha as memorias vivas com acolhimento e organizacao.',
+    title: 'Um espaço para lembrar com serenidade',
+    subtitle: 'Mantenha as memórias vivas com acolhimento e organização.',
     image:
       'https://images.unsplash.com/photo-1542037104857-ffbb0b9155fb?q=80&w=1400&auto=format&fit=crop'
   },
   {
     id: 's2',
     title: 'Fluxo digital para momentos delicados',
-    subtitle: 'Comunique obito e acompanhe o processo com transparencia.',
+    subtitle: 'Comunique óbito e acompanhe o processo com transparência.',
     image:
       'https://images.unsplash.com/photo-1475503572774-15a45e5d60b9?q=80&w=1400&auto=format&fit=crop'
   },
   {
     id: 's3',
-    title: 'Servicos e homenagens em um unico lugar',
+    title: 'Serviços e homenagens em um único lugar',
     subtitle: 'Produtos, cuidados e apoio para cada etapa da jornada.',
     image:
       'https://images.unsplash.com/photo-1518895949257-7621c3c786d7?q=80&w=1400&auto=format&fit=crop'
@@ -28,26 +28,26 @@ const slides = [
 
 const quickActions = [
   {
-    title: 'Comunicar obito',
-    description: 'Inicie o registro com orientacao e suporte.',
+    title: 'Comunicar óbito',
+    description: 'Inicie o registro com orientação e suporte.',
     to: '/app/comunicar-obito',
     icon: CalendarHeart
   },
   {
-    title: 'Jardim de memorias',
-    description: 'Acompanhe homenagens e registros da familia.',
+    title: 'Jardim de memórias',
+    description: 'Acompanhe homenagens e registros da família.',
     to: '/app/memorias',
     icon: Flower2
   },
   {
-    title: 'Loja e servicos',
-    description: 'Encontre produtos e servicos de apoio.',
+    title: 'Loja e serviços',
+    description: 'Encontre produtos e serviços de apoio.',
     to: '/app/loja',
     icon: ShoppingBag
   },
   {
     title: 'Assistente virtual',
-    description: 'Converse com a IA para tirar duvidas.',
+    description: 'Converse com a IA para tirar dúvidas.',
     to: '/app/assistente',
     icon: MessageCircleHeart
   }
@@ -138,15 +138,15 @@ export default function UserHomePage() {
             </p>
           </div>
           <div className="rounded-xl bg-slate-50 border border-slate-200 p-4">
-            <p className="text-xs uppercase tracking-[0.16em] text-blue-700 font-semibold">2. Analise</p>
+            <p className="text-xs uppercase tracking-[0.16em] text-blue-700 font-semibold">2. Análise</p>
             <p className="text-sm text-slate-600 mt-2">
-              A equipe administrativa valida documentos e define os proximos passos.
+              A equipe administrativa valida documentos e define os próximos passos.
             </p>
           </div>
           <div className="rounded-xl bg-slate-50 border border-slate-200 p-4">
             <p className="text-xs uppercase tracking-[0.16em] text-blue-700 font-semibold">3. Acompanhamento</p>
             <p className="text-sm text-slate-600 mt-2">
-              Voce acompanha status, memorias e servicos em um unico painel.
+              Você acompanha status, memórias e serviços em um único painel.
             </p>
           </div>
         </div>

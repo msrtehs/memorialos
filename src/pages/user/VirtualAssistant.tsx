@@ -14,7 +14,7 @@ export default function VirtualAssistant() {
     {
       id: '1',
       role: 'model',
-      text: 'Ola. Eu sou o Memorial AI. Estou aqui para ajudar com orientacoes, duvidas e acolhimento.'
+      text: 'Olá. Eu sou o Memorial AI. Estou aqui para ajudar com orientações, dúvidas e acolhimento.'
     }
   ]);
   const [input, setInput] = useState('');
@@ -41,7 +41,7 @@ export default function VirtualAssistant() {
             latest.deceased.relationshipType ||
             'pessoa querida';
           setEmotionalContext(
-            `Usuario comunicou obito recente de ${latest.deceased.name}. Relacao: ${relation}.`
+            `Usuário comunicou óbito recente de ${latest.deceased.name}. Relação: ${relation}.`
           );
           setMessages((prev) => [
             ...prev,
@@ -145,7 +145,7 @@ export default function VirtualAssistant() {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Digite sua mensagem..."
+            placeholder="Digite sua mensagem..." aria-label="Digite sua mensagem..."
             className="flex-1 px-6 py-3 bg-slate-50 border border-blue-100 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
           />
           <button

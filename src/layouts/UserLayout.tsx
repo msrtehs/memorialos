@@ -30,12 +30,12 @@ export default function UserLayout() {
       try {
         const profile = await getUserProfile(user.uid);
         setProfilePhoto(profile?.photoUrl || user.photoURL || '');
-        setDisplayName(profile?.displayName || user.displayName || 'Usuario');
+        setDisplayName(profile?.displayName || user.displayName || 'Usuário');
       } catch (error) {
         // best-effort deliberado: fallback de exibição (foto/nome do Auth) já cobre a falha.
         console.error('Erro ao carregar perfil no layout:', error);
         setProfilePhoto(user.photoURL || '');
-        setDisplayName(user.displayName || 'Usuario');
+        setDisplayName(user.displayName || 'Usuário');
       }
     }
     loadProfile();
@@ -45,10 +45,10 @@ export default function UserLayout() {
 
   const navItems = [
     { path: '/app/inicio', label: 'Inicio', icon: House },
-    { path: '/app/comunicar-obito', label: 'Comunicar Obito', icon: PenTool },
+    { path: '/app/comunicar-obito', label: 'Comunicar Óbito', icon: PenTool },
     { path: '/app/memorias', label: 'Jardim de Memorias', icon: Flower },
     { path: '/app/assistente', label: 'Assistente Virtual', icon: MessageCircleHeart },
-    { path: '/app/loja', label: 'Loja e Servicos', icon: ShoppingBag },
+    { path: '/app/loja', label: 'Loja e Serviços', icon: ShoppingBag },
     { path: '/app/perfil', label: 'Meu Perfil', icon: UserCircle2 }
   ];
 
@@ -97,7 +97,7 @@ export default function UserLayout() {
             )}
           </div>
           <div className="overflow-hidden">
-            <p className="text-sm font-medium text-white truncate">{displayName || user?.displayName || 'Usuario'}</p>
+            <p className="text-sm font-medium text-white truncate">{displayName || user?.displayName || 'Usuário'}</p>
             <p className="text-xs text-slate-500 truncate">{user?.email}</p>
           </div>
         </div>

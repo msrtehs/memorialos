@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { reportLoadError } from '@/lib/errors';
+import { documentStatusLabel } from '@/lib/statusLabels';
 import { FileText, Upload } from 'lucide-react';
 import { useAdmin } from '@/contexts/AdminContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -105,22 +106,22 @@ export default function DocumentsCenterPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-800">Digitalizacao documental</h1>
-        <p className="text-sm text-slate-500">Cadastro, upload seguro e validacao de documentos administrativos, legais e sanitarios.</p>
+        <h1 className="text-2xl font-bold text-slate-800">Digitalização documental</h1>
+        <p className="text-sm text-slate-500">Cadastro, upload seguro e validação de documentos administrativos, legais e sanitários.</p>
       </div>
 
       <form onSubmit={handleCreateDocument} className="bg-white border border-slate-200 rounded-xl p-4 grid grid-cols-1 md:grid-cols-6 gap-3">
-        <input value={form.title} onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))} className="md:col-span-2 border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Titulo do documento" required />
-        <select value={form.documentType} onChange={(e) => setForm((prev) => ({ ...prev, documentType: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
+        <input value={form.title} onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))} className="md:col-span-2 border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Título do documento" aria-label="Título do documento" required />
+        <select aria-label="Tipo de documento" value={form.documentType} onChange={(e) => setForm((prev) => ({ ...prev, documentType: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
           <option value="administrative">Administrativo</option>
-          <option value="legal">Juridico</option>
-          <option value="sanitary">Sanitario</option>
+          <option value="legal">Jurídico</option>
+          <option value="sanitary">Sanitário</option>
           <option value="environmental">Ambiental</option>
           <option value="deceased">Falecido</option>
           <option value="financial">Financeiro</option>
         </select>
-        <input value={form.relatedEntityId} onChange={(e) => setForm((prev) => ({ ...prev, relatedEntityId: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="ID relacionado (opcional)" />
-        <select value={form.status} onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
+        <input value={form.relatedEntityId} onChange={(e) => setForm((prev) => ({ ...prev, relatedEntityId: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="ID relacionado (opcional)" aria-label="ID relacionado (opcional)" />
+        <select aria-label="Status" value={form.status} onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
           <option value="pending">Pendente</option>
           <option value="validated">Validado</option>
           <option value="rejected">Rejeitado</option>
@@ -132,7 +133,7 @@ export default function DocumentsCenterPage() {
           <input type="date" value={form.issuedAt} onChange={(e) => setForm((prev) => ({ ...prev, issuedAt: e.target.value }))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" />
         </div>
         <div className="md:col-span-2">
-          <input type="date" value={form.expiresAt} onChange={(e) => setForm((prev) => ({ ...prev, expiresAt: e.target.value }))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Validade" />
+          <input type="date" value={form.expiresAt} onChange={(e) => setForm((prev) => ({ ...prev, expiresAt: e.target.value }))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Validade" aria-label="Validade" />
         </div>
         <div className="md:col-span-2">
           <input
@@ -155,7 +156,7 @@ export default function DocumentsCenterPage() {
             className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm file:mr-2 file:rounded file:border-0 file:bg-slate-100 file:px-2 file:py-1"
           />
         </div>
-        <textarea value={form.notes} onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))} className="md:col-span-6 border border-slate-300 rounded-lg px-3 py-2 text-sm h-20" placeholder="Observacoes (opcional)" />
+        <textarea value={form.notes} onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))} className="md:col-span-6 border border-slate-300 rounded-lg px-3 py-2 text-sm h-20" placeholder="Observações (opcional)" aria-label="Observações (opcional)" />
       </form>
 
       <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto">
@@ -164,7 +165,7 @@ export default function DocumentsCenterPage() {
             <tr>
               <th className="px-4 py-3">Documento</th>
               <th className="px-4 py-3">Tipo</th>
-              <th className="px-4 py-3">Emissao</th>
+              <th className="px-4 py-3">Emissão</th>
               <th className="px-4 py-3">Validade</th>
               <th className="px-4 py-3">Arquivo</th>
               <th className="px-4 py-3">Status</th>
@@ -190,10 +191,10 @@ export default function DocumentsCenterPage() {
                   )}
                 </td>
                 <td className="px-4 py-3">
-                  <select value={doc.status} onChange={(e) => updateStatus(doc.id, e.target.value)} className="border border-slate-300 rounded px-2 py-1 text-xs bg-white">
-                    <option value="pending">pending</option>
-                    <option value="validated">validated</option>
-                    <option value="rejected">rejected</option>
+                  <select value={doc.status} onChange={(e) => updateStatus(doc.id, e.target.value)} aria-label="Status do documento" className="border border-slate-300 rounded px-2 py-1 text-xs bg-white">
+                    {Object.entries(documentStatusLabel).map(([value, text]) => (
+                      <option key={value} value={value}>{text}</option>
+                    ))}
                   </select>
                 </td>
               </tr>

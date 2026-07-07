@@ -135,13 +135,13 @@ export default function ProfilePage() {
 
           <div>
             <p className="font-semibold text-slate-900">{user?.email}</p>
-            <p className="text-sm text-slate-500">Use uma foto clara para facilitar identificacao.</p>
+            <p className="text-sm text-slate-500">Use uma foto clara para facilitar identificação.</p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Nome de exibicao</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Nome de exibição</label>
             <input
               value={form.displayName || ''}
               onChange={(e) => setForm((prev) => ({ ...prev, displayName: e.target.value }))}
@@ -174,7 +174,7 @@ export default function ProfilePage() {
             />
           </div>
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-slate-700 mb-1">Endereco</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Endereço</label>
             <input
               value={form.address || ''}
               onChange={(e) => setForm((prev) => ({ ...prev, address: e.target.value }))}
@@ -182,7 +182,7 @@ export default function ProfilePage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Contato de emergencia</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Contato de emergência</label>
             <input
               value={form.emergencyContact || ''}
               onChange={(e) => setForm((prev) => ({ ...prev, emergencyContact: e.target.value }))}
@@ -192,6 +192,7 @@ export default function ProfilePage() {
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Canal preferencial</label>
             <select
+              aria-label="Canal preferencial"
               value={form.preferredContact || ''}
               onChange={(e) => setForm((prev) => ({ ...prev, preferredContact: e.target.value }))}
               className="w-full border border-slate-300 rounded-lg px-3 py-2 bg-white"
@@ -203,12 +204,12 @@ export default function ProfilePage() {
             </select>
           </div>
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-slate-700 mb-1">Observacoes uteis para atendimento</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Observações úteis para atendimento</label>
             <textarea
               value={form.notes || ''}
               onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))}
               className="w-full border border-slate-300 rounded-lg px-3 py-2 h-24"
-              placeholder="Ex: horario preferido para contato, necessidades especiais, etc."
+              placeholder="Ex: horário preferido para contato, necessidades especiais, etc."
             />
           </div>
         </div>
@@ -219,7 +220,7 @@ export default function ProfilePage() {
             disabled={saving}
             className="inline-flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-60"
           >
-            <Save size={16} /> {saving ? 'Salvando...' : 'Salvar alteracoes'}
+            <Save size={16} /> {saving ? 'Salvando...' : 'Salvar alterações'}
           </button>
         </div>
       </form>

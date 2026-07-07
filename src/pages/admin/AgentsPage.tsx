@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { Bot, Plus, Send, User } from 'lucide-react';
 import { reportError, reportLoadError } from '@/lib/errors';
+import { useModal } from '@/hooks/useModal';
 import { formatCurrency } from '@/lib/formatters';
 import { useAdmin } from '@/contexts/AdminContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -20,6 +21,7 @@ export default function AgentsPage() {
   ]);
   const [snapshot, setSnapshot] = useState<SciExecutiveSnapshot | null>(null);
   const [pendingAgentId, setPendingAgentId] = useState<string | null>(null);
+  const { containerRef: switchDialogRef } = useModal(!!pendingAgentId, () => setPendingAgentId(null));
   const [form, setForm] = useState({
     name: '',
     mode: 'agent',
@@ -115,16 +117,16 @@ export default function AgentsPage() {
   };
 
   const buildContext = () => {
-    if (!snapshot) return 'Sem contexto executivo disponivel.';
+    if (!snapshot) return 'Sem contexto executivo disponível.';
     return [
-      `Taxa de ocupacao: ${snapshot.occupancyRate}%`,
+      `Taxa de ocupação: ${snapshot.occupancyRate}%`,
       `Sepultamentos: ${snapshot.totalBurials}`,
-      `Exumacoes: ${snapshot.totalExhumations}`,
-      `Ocorrencias abertas: ${snapshot.openOccurrences}`,
-      `Riscos sanitarios: ${snapshot.sanitaryAlerts}`,
+      `Exumações: ${snapshot.totalExhumations}`,
+      `Ocorrências abertas: ${snapshot.openOccurrences}`,
+      `Riscos sanitários: ${snapshot.sanitaryAlerts}`,
       `Riscos ambientais: ${snapshot.environmentalAlerts}`,
       `Falhas estruturais: ${snapshot.structuralFailures}`,
-      `Pendencias documentais: ${snapshot.pendingDocuments}`,
+      `Pendências documentais: ${snapshot.pendingDocuments}`,
       `Receita: ${formatCurrency(snapshot.totalRevenue)}`,
       `Despesa: ${formatCurrency(snapshot.totalExpenses)}`
     ].join(' | ');
@@ -168,17 +170,17 @@ export default function AgentsPage() {
         <div className="bg-white border border-slate-200 rounded-xl p-4">
           <h2 className="font-semibold text-slate-800 mb-3">Novo agente/chatbot</h2>
           <form onSubmit={handleCreateAgent} className="space-y-3">
-            <input value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Nome do agente" required />
-            <select value={form.mode} onChange={(e) => setForm((prev) => ({ ...prev, mode: e.target.value }))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
+            <input value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Nome do agente" aria-label="Nome do agente" required />
+            <select aria-label="Modo" value={form.mode} onChange={(e) => setForm((prev) => ({ ...prev, mode: e.target.value }))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
               <option value="agent">Agente inteligente</option>
               <option value="chatbot">Chatbot inteligente</option>
             </select>
-            <input value={form.objective} onChange={(e) => setForm((prev) => ({ ...prev, objective: e.target.value }))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Objetivo principal" required />
-            <textarea value={form.prompt} onChange={(e) => setForm((prev) => ({ ...prev, prompt: e.target.value }))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm h-20" placeholder="Instrucoes personalizadas" required />
-            <input value={form.modules} onChange={(e) => setForm((prev) => ({ ...prev, modules: e.target.value }))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Modulos separados por virgula" />
+            <input value={form.objective} onChange={(e) => setForm((prev) => ({ ...prev, objective: e.target.value }))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Objetivo principal" aria-label="Objetivo principal" required />
+            <textarea value={form.prompt} onChange={(e) => setForm((prev) => ({ ...prev, prompt: e.target.value }))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm h-20" placeholder="Instruções personalizadas" aria-label="Instruções personalizadas" required />
+            <input value={form.modules} onChange={(e) => setForm((prev) => ({ ...prev, modules: e.target.value }))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Modulos separados por virgula" aria-label="Modulos separados por virgula" />
             <label className="flex items-center gap-2 text-sm text-slate-600">
               <input type="checkbox" checked={form.isActive} onChange={(e) => setForm((prev) => ({ ...prev, isActive: e.target.checked }))} />
-              Ativar agente apos criar
+              Ativar agente após criar
             </label>
             <button type="submit" className="w-full bg-blue-600 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-blue-700 flex items-center justify-center gap-2">
               <Plus size={14} /> Criar
@@ -244,7 +246,7 @@ export default function AgentsPage() {
               placeholder={selectedAgent ? 'Pergunte ao agente selecionado...' : 'Selecione um agente para conversar'}
               disabled={!selectedAgent || loadingReply}
             />
-            <button onClick={sendMessage} disabled={!selectedAgent || loadingReply || !input.trim()} className="bg-indigo-600 text-white px-3 py-2 rounded-lg hover:bg-indigo-700 disabled:opacity-60">
+            <button onClick={sendMessage} disabled={!selectedAgent || loadingReply || !input.trim()} aria-label="Enviar mensagem" className="bg-indigo-600 text-white px-3 py-2 rounded-lg hover:bg-indigo-700 disabled:opacity-60">
               <Send size={14} />
             </button>
           </div>
@@ -253,8 +255,8 @@ export default function AgentsPage() {
 
       {pendingAgentId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div role="dialog" aria-modal="true" className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
-            <h3 className="text-lg font-bold text-slate-900 mb-2">Trocar de agente</h3>
+          <div ref={switchDialogRef} role="dialog" aria-modal="true" aria-labelledby="switch-agent-title" className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+            <h3 id="switch-agent-title" className="text-lg font-bold text-slate-900 mb-2">Trocar de agente</h3>
             <p className="text-sm text-slate-600 mb-6">
               Você tem uma conversa em andamento. Ao trocar de agente, o histórico atual será limpo. Deseja continuar?
             </p>

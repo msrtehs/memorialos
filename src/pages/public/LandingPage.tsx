@@ -9,11 +9,11 @@ export default function LandingPage() {
       <section className="bg-gradient-to-b from-blue-50 to-white py-20 px-4">
         <div className="max-w-4xl mx-auto text-center">
           <h1 className="text-4xl md:text-5xl font-serif font-bold text-blue-900 leading-tight">
-            Preservando memorias com dignidade e tecnologia
+            Preservando memórias com dignidade e tecnologia
           </h1>
           <p className="mt-6 text-lg text-slate-600 max-w-2xl mx-auto leading-relaxed">
-            O MemorialOS e a plataforma completa para gestao de cemiterios e memoriais digitais.
-            Conectamos familias, gestores e prefeituras em um so lugar.
+            O MemorialOS é a plataforma completa para gestão de cemitérios e memoriais digitais.
+            Conectamos famílias, gestores e prefeituras em um só lugar.
           </p>
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
@@ -37,32 +37,32 @@ export default function LandingPage() {
       <section className="py-20 px-4">
         <div className="max-w-6xl mx-auto">
           <h2 className="text-2xl md:text-3xl font-serif font-bold text-slate-900 text-center mb-4">
-            Tudo que voce precisa em um so sistema
+            Tudo que você precisa em um só sistema
           </h2>
           <p className="text-slate-500 text-center mb-14 max-w-xl mx-auto">
-            Funcionalidades pensadas para familias que desejam honrar seus entes queridos e gestores que precisam de eficiencia.
+            Funcionalidades pensadas para famílias que desejam honrar seus entes queridos e gestores que precisam de eficiência.
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             <FeatureCard
               icon={<Search size={24} />}
-              title="Busca publica"
-              description="Encontre informacoes sobre jazigos e localizacao de falecidos em cemiterios cadastrados."
+              title="Busca pública"
+              description="Encontre informações sobre jazigos e localização de falecidos em cemitérios cadastrados."
             />
             <FeatureCard
               icon={<Heart size={24} />}
               title="Memoriais digitais"
-              description="Crie paginas de homenagem com fotos, historias e mensagens de carinho para quem partiu."
+              description="Crie páginas de homenagem com fotos, histórias e mensagens de carinho para quem partiu."
             />
             <FeatureCard
               icon={<Shield size={24} />}
-              title="Gestao completa"
-              description="Controle de quadras, jazigos, financeiro, estoque e operacoes do cemiterio em tempo real."
+              title="Gestão completa"
+              description="Controle de quadras, jazigos, financeiro, estoque e operações do cemitério em tempo real."
             />
             <FeatureCard
               icon={<Clock size={24} />}
-              title="Comunicacao de obito"
-              description="Comunique um falecimento de forma digital e acompanhe o processo de alocacao de jazigo."
+              title="Comunicação de óbito"
+              description="Comunique um falecimento de forma digital e acompanhe o processo de alocação de jazigo."
             />
           </div>
         </div>
@@ -75,7 +75,7 @@ export default function LandingPage() {
             Procurando um ente querido?
           </h2>
           <p className="text-slate-400 mb-8">
-            Use nossa busca publica para encontrar informacoes sobre falecidos e localizacao de jazigos. Nao precisa de cadastro.
+            Use nossa busca pública para encontrar informações sobre falecidos e localização de jazigos. Não precisa de cadastro.
           </p>
           <Link
             to="/buscar"
@@ -97,17 +97,17 @@ export default function LandingPage() {
             <StepCard
               number="1"
               title="Crie sua conta"
-              description="Cadastre-se gratuitamente e acesse sua area pessoal para gerenciar memoriais e comunicar obitos."
+              description="Cadastre-se gratuitamente e acesse sua área pessoal para gerenciar memoriais e comunicar óbitos."
             />
             <StepCard
               number="2"
               title="Comunique ou homenageie"
-              description="Envie comunicacoes de obito ou crie memoriais digitais para preservar a historia de quem voce ama."
+              description="Envie comunicações de óbito ou crie memoriais digitais para preservar a história de quem você ama."
             />
             <StepCard
               number="3"
               title="Acompanhe tudo"
-              description="Receba atualizacoes sobre alocacoes, status e servicos disponibilizados pela prefeitura."
+              description="Receba atualizações sobre alocações, status e serviços disponibilizados pela prefeitura."
             />
           </div>
         </div>

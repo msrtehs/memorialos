@@ -66,7 +66,7 @@ export default function RegisterPage() {
             <AppLogo size={48} className="bg-transparent p-0" fallbackTextClassName="text-xl" />
           </div>
           <h1 className="text-2xl font-serif text-blue-900 font-bold">Crie sua conta</h1>
-          <p className="text-slate-500 mt-2">Comece a preservar memorias hoje mesmo</p>
+          <p className="text-slate-500 mt-2">Comece a preservar memórias hoje mesmo</p>
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -76,7 +76,7 @@ export default function RegisterPage() {
               {...register('name')}
               type="text"
               className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-              placeholder="Seu nome"
+              placeholder="Seu nome" aria-label="Seu nome"
             />
             {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
           </div>
@@ -87,7 +87,7 @@ export default function RegisterPage() {
               {...register('email')}
               type="email"
               className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-              placeholder="seu@email.com"
+              placeholder="seu@email.com" aria-label="seu@email.com"
             />
             {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
           </div>
@@ -98,7 +98,7 @@ export default function RegisterPage() {
               {...register('password')}
               type="password"
               className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-              placeholder="********"
+              placeholder="********" aria-label="********"
             />
             {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
           </div>
@@ -109,7 +109,7 @@ export default function RegisterPage() {
               {...register('confirmPassword')}
               type="password"
               className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-              placeholder="********"
+              placeholder="********" aria-label="********"
             />
             {errors.confirmPassword && (
               <p className="text-red-500 text-xs mt-1">{errors.confirmPassword.message}</p>

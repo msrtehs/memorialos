@@ -265,7 +265,7 @@ export default function AdminReportDeath() {
               value={obituaryText}
               onChange={(e) => setObituaryText(e.target.value)}
               className="w-full h-64 p-4 border border-slate-300 rounded-xl focus:ring-2 focus:ring-slate-500 outline-none text-slate-700 leading-relaxed"
-              placeholder="Texto do obituário..."
+              placeholder="Texto do obituário..." aria-label="Texto do obituário..."
             />
 
             <div className="flex justify-between pt-4">
@@ -312,7 +312,7 @@ export default function AdminReportDeath() {
             
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Cemitério</label>
-              <select {...form4.register('cemeteryId')} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 outline-none mb-3">
+              <select aria-label="Cemitério" {...form4.register('cemeteryId')} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 outline-none mb-3">
                 <option value="">Selecione...</option>
                 {cemeteries.map(c => (
                   <option key={c.id} value={c.id}>{c.name}</option>
@@ -321,7 +321,7 @@ export default function AdminReportDeath() {
               {form4.formState.errors.cemeteryId && <p className="text-red-500 text-xs mt-1">{String(form4.formState.errors.cemeteryId.message)}</p>}
               
               <label className="block text-sm font-medium text-slate-700 mb-1 mt-3">Jazigo disponível</label>
-              <select
+              <select aria-label="Jazigo"
                 {...form4.register('plotId')}
                 disabled={!step4Cemetery}
                 className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 outline-none bg-white disabled:bg-slate-100 disabled:text-slate-400"
