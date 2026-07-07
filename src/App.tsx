@@ -72,7 +72,7 @@ const AppContent = () => {
     return (
       <div className="min-h-screen flex items-center justify-center bg-red-50 p-4">
         <div className="max-w-md w-full bg-white p-8 rounded-xl shadow-lg border border-red-100 text-center">
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Configuracao necessaria</h2>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Configuração necessária</h2>
           <p className="text-gray-600 mb-6">{error}</p>
           <div className="text-left bg-gray-50 p-4 rounded-lg text-sm text-gray-700 font-mono overflow-x-auto">
             <p className="mb-2 font-bold">Adicione no seu .env:</p>

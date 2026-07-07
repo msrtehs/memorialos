@@ -8,10 +8,10 @@ import { reportError, reportLoadError } from '@/lib/errors';
 
 const reportTypes = [
   { id: 'operational', label: 'Operacional' },
-  { id: 'sanitary', label: 'Sanitario' },
+  { id: 'sanitary', label: 'Sanitário' },
   { id: 'environmental', label: 'Ambiental' },
   { id: 'administrative', label: 'Administrativo' },
-  { id: 'legal', label: 'Juridico' },
+  { id: 'legal', label: 'Jurídico' },
   { id: 'financial', label: 'Financeiro' }
 ];
 
@@ -26,6 +26,8 @@ export default function ReportsPage() {
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
 
   const cemeteryName = cemeteries.find((c) => c.id === selectedCemeteryId)?.name;
+  const cemeteryNameOf = (id?: string) =>
+    id === 'all' ? 'Todas as unidades' : (cemeteries.find((c) => c.id === id)?.name ?? id ?? '—');
 
   const scopedReports = useMemo(
     () =>
@@ -89,14 +91,14 @@ export default function ReportsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-800">Relatorios automaticos</h1>
+        <h1 className="text-2xl font-bold text-slate-800">Relatórios automáticos</h1>
         <p className="text-sm text-slate-500">
-          Geracao automatica de relatorios operacionais, sanitarios, ambientais, administrativos, juridicos e financeiros.
+          Geração automática de relatórios operacionais, sanitários, ambientais, administrativos, jurídicos e financeiros.
         </p>
       </div>
 
       <div className="bg-white border border-slate-200 rounded-xl p-4 flex flex-wrap gap-3 items-center">
-        <select value={type} onChange={(e) => setType(e.target.value)} className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
+        <select aria-label="Tipo" value={type} onChange={(e) => setType(e.target.value)} className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
           {reportTypes.map((item) => (
             <option key={item.id} value={item.id}>{item.label}</option>
           ))}
@@ -108,14 +110,14 @@ export default function ReportsPage() {
           Até <input type="date" value={periodTo} onChange={(e) => setPeriodTo(e.target.value)} className="border border-slate-300 rounded-lg px-2 py-2 text-sm" />
         </label>
         <button onClick={handleGenerateReport} disabled={saving} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-60 flex items-center gap-2">
-          <Plus size={14} /> {saving ? 'Gerando...' : 'Gerar relatorio'}
+          <Plus size={14} /> {saving ? 'Gerando...' : 'Gerar relatório'}
         </button>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
           <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 text-sm font-semibold text-slate-700">
-            Historico de relatorios
+            Histórico de relatórios
           </div>
           <div className="divide-y divide-slate-100 max-h-[520px] overflow-y-auto">
             {scopedReports.map((report) => (
@@ -125,7 +127,7 @@ export default function ReportsPage() {
                 className={`w-full text-left p-4 hover:bg-slate-50 ${selectedReportId === report.id ? 'bg-blue-50' : ''}`}
               >
                 <div className="flex items-center justify-between">
-                  <p className="font-medium text-slate-900 capitalize">{report.type}</p>
+                  <p className="font-medium text-slate-900">{reportTypes.find((t) => t.id === report.type)?.label || report.type}</p>
                   <FileBarChart2 size={15} className="text-slate-500" />
                 </div>
                 <p className="text-xs text-slate-500 mt-1">
@@ -133,11 +135,11 @@ export default function ReportsPage() {
                     ? new Date(report.generatedAt.seconds * 1000).toLocaleString('pt-BR')
                     : 'Sem data'}
                 </p>
-                <p className="text-xs text-slate-400 mt-1">Cemiterio: {report.cemeteryId}</p>
+                <p className="text-xs text-slate-400 mt-1">Cemitério: {cemeteryNameOf(report.cemeteryId)}</p>
               </button>
             ))}
             {scopedReports.length === 0 && (
-              <div className="p-6 text-center text-sm text-slate-500">Nenhum relatorio gerado ainda.</div>
+              <div className="p-6 text-center text-sm text-slate-500">Nenhum relatório gerado ainda.</div>
             )}
           </div>
         </div>
@@ -146,7 +148,7 @@ export default function ReportsPage() {
           {selectedReport ? (
             <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <h2 className="text-lg font-bold text-slate-800 capitalize">Relatorio {selectedReport.type}</h2>
+                <h2 className="text-lg font-bold text-slate-800">Relatório {reportTypes.find((t) => t.id === selectedReport.type)?.label || selectedReport.type}</h2>
                 <button onClick={() => downloadReport(selectedReport)} className="text-sm bg-slate-900 text-white px-3 py-2 rounded-lg hover:bg-slate-800 flex items-center gap-2">
                   <Download size={14} /> Download TXT
                 </button>
@@ -157,7 +159,7 @@ export default function ReportsPage() {
             </div>
           ) : (
             <div className="h-full min-h-[220px] flex items-center justify-center text-slate-500 text-sm">
-              Selecione um relatorio para visualizar o conteudo.
+              Selecione um relatório para visualizar o conteúdo.
             </div>
           )}
         </div>

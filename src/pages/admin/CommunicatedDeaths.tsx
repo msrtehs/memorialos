@@ -305,8 +305,8 @@ export default function CommunicatedDeaths() {
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Cemitério</label>
-                    <select 
-                      value={selectedCemetery} 
+                    <select aria-label="Cemitério"
+                      value={selectedCemetery}
                       onChange={(e) => setSelectedCemetery(e.target.value)}
                       className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                     >
@@ -320,8 +320,8 @@ export default function CommunicatedDeaths() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-1">Setor / Quadra</label>
-                      <select 
-                        value={selectedSector} 
+                      <select aria-label="Setor / Quadra"
+                        value={selectedSector}
                         onChange={(e) => setSelectedSector(e.target.value)}
                         disabled={!selectedCemetery}
                         className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none disabled:bg-slate-100 disabled:text-slate-400"
@@ -334,8 +334,8 @@ export default function CommunicatedDeaths() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-1">Jazigo / Lote</label>
-                      <select 
-                        value={selectedPlot} 
+                      <select aria-label="Jazigo / Lote"
+                        value={selectedPlot}
                         onChange={(e) => setSelectedPlot(e.target.value)}
                         disabled={!selectedSector}
                         className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none disabled:bg-slate-100 disabled:text-slate-400"
@@ -374,7 +374,7 @@ export default function CommunicatedDeaths() {
                     value={rejectionReason}
                     onChange={(e) => setRejectionReason(e.target.value)}
                     className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 outline-none h-32"
-                    placeholder="Explique o motivo da rejeição (ex: Documentação ilegível)..."
+                    placeholder="Explique o motivo da rejeição (ex: Documentação ilegível)..." aria-label="Explique o motivo da rejeição (ex: Documentação ilegível)..."
                   />
                 </div>
               )}

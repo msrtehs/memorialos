@@ -10,6 +10,7 @@ import { getTenantNotifications } from '@/services/notificationService';
 import { StatCardSkeleton } from '@/components/ui/StatCardSkeleton';
 import { formatCurrency } from '@/lib/formatters';
 import { reportLoadError } from '@/lib/errors';
+import { useModal } from '@/hooks/useModal';
 
 const cardClass = 'bg-white p-6 rounded-xl shadow-sm border border-slate-200';
 
@@ -49,6 +50,7 @@ export default function AdminDashboard() {
   const [monthlyTrend, setMonthlyTrend] = useState<{ month: string; count: number }[]>([]);
   const [pendingNotifications, setPendingNotifications] = useState<number | null>(null);
   const [showChecklist, setShowChecklist] = useState(false);
+  const { containerRef: checklistModalRef } = useModal(showChecklist, () => setShowChecklist(false));
   const [checklist, setChecklist] = useState({
     area: '',
     indicator: '',
@@ -88,7 +90,7 @@ export default function AdminDashboard() {
   const occupancyData = useMemo(
     () => [
       { name: 'Ocupado', value: snapshot.occupiedPlots, color: '#ef4444' },
-      { name: 'Disponivel', value: snapshot.availablePlots, color: '#22c55e' },
+      { name: 'Disponível', value: snapshot.availablePlots, color: '#22c55e' },
       { name: 'Reservado', value: snapshot.reservedPlots, color: '#f59e0b' }
     ],
     [snapshot]
@@ -192,7 +194,7 @@ export default function AdminDashboard() {
       {/* Row 1: Occupancy, Available, Saturation, Occurrences */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
         <button onClick={() => navigate('/admin/inventario')} className={`${cardClass} text-left hover:shadow-md transition-shadow`}>
-          <p className="text-sm text-slate-500">Taxa de ocupacao</p>
+          <p className="text-sm text-slate-500">Taxa de ocupação</p>
           <p className="text-3xl font-bold text-slate-900 mt-2">{snapshot.occupancyRate}%</p>
           <p className="text-xs text-slate-500 mt-2">{snapshot.occupiedPlots} ocupados de {snapshot.totalPlots} jazigos</p>
           <div className="w-full bg-slate-200 rounded-full h-2 mt-3">
@@ -204,13 +206,13 @@ export default function AdminDashboard() {
         </button>
 
         <button onClick={() => navigate('/admin/inventario')} className={`${cardClass} text-left hover:shadow-md transition-shadow`}>
-          <p className="text-sm text-slate-500">Jazigos disponiveis</p>
+          <p className="text-sm text-slate-500">Jazigos disponíveis</p>
           <p className="text-3xl font-bold text-emerald-600 mt-2">{snapshot.availablePlots}</p>
           <p className="text-xs text-slate-500 mt-2">de {snapshot.totalPlots} total ({snapshot.blockedPlots} bloqueados)</p>
         </button>
 
         <div className={`${cardClass}`}>
-          <p className="text-sm text-slate-500 flex items-center gap-1"><Clock size={14} /> Projecao de saturacao</p>
+          <p className="text-sm text-slate-500 flex items-center gap-1"><Clock size={14} /> Projeção de saturação</p>
           <p className={`text-3xl font-bold mt-2 ${saturationColor}`}>
             {snapshot.saturationProjectionYears !== null
               ? `${snapshot.saturationProjectionYears.toFixed(1)} anos`
@@ -218,13 +220,13 @@ export default function AdminDashboard() {
           </p>
           <p className="text-xs text-slate-500 mt-2">
             {snapshot.averageAnnualBurials > 0
-              ? `Media: ${snapshot.averageAnnualBurials.toFixed(1)} sepultamentos/ano`
-              : 'Sem historico de sepultamentos'}
+              ? `Média: ${snapshot.averageAnnualBurials.toFixed(1)} sepultamentos/ano`
+              : 'Sem histórico de sepultamentos'}
           </p>
         </div>
 
         <button onClick={() => navigate('/admin/seguranca')} className={`${cardClass} text-left hover:shadow-md transition-shadow`}>
-          <p className="text-sm text-slate-500">Ocorrencias abertas</p>
+          <p className="text-sm text-slate-500">Ocorrências abertas</p>
           <p className="text-3xl font-bold text-slate-900 mt-2">{snapshot.openOccurrences}</p>
           <p className="text-xs text-slate-500 mt-2">Monitoramento de risco e conformidade</p>
         </button>
@@ -235,38 +237,38 @@ export default function AdminDashboard() {
         <button onClick={() => navigate('/admin/operacional')} className={`${cardClass} text-left hover:shadow-md transition-shadow`}>
           <p className="text-sm text-slate-500 flex items-center gap-1"><Calendar size={14} /> Sepultamentos</p>
           <p className="text-3xl font-bold text-slate-900 mt-2">{snapshot.totalBurials}</p>
-          <p className="text-xs text-slate-500 mt-2">Registros de sepultamento no periodo</p>
+          <p className="text-xs text-slate-500 mt-2">Registros de sepultamento no período</p>
         </button>
 
         <button onClick={() => navigate('/admin/operacional')} className={`${cardClass} text-left hover:shadow-md transition-shadow`}>
-          <p className="text-sm text-slate-500">Exumacoes pendentes</p>
+          <p className="text-sm text-slate-500">Exumações pendentes</p>
           <p className={`text-3xl font-bold mt-2 ${snapshot.pendingExhumations > 0 ? 'text-rose-600' : 'text-slate-900'}`}>
             {snapshot.pendingExhumations}
           </p>
           <p className="text-xs text-slate-500 mt-2">
             {snapshot.approachingExhumations > 0
-              ? `+ ${snapshot.approachingExhumations} nos proximos 6 meses`
-              : 'Nenhuma exumacao proxima do prazo'}
+              ? `+ ${snapshot.approachingExhumations} nos próximos 6 meses`
+              : 'Nenhuma exumação próxima do prazo'}
           </p>
         </button>
 
         <button onClick={() => navigate('/admin/documentos')} className={`${cardClass} text-left hover:shadow-md transition-shadow`}>
-          <p className="text-sm text-slate-500">Pendencias documentais</p>
+          <p className="text-sm text-slate-500">Pendências documentais</p>
           <p className="text-3xl font-bold text-slate-900 mt-2">{snapshot.pendingDocuments}</p>
-          <p className="text-xs text-slate-500 mt-2">Digitalizacao, validacao e rastreabilidade</p>
+          <p className="text-xs text-slate-500 mt-2">Digitalização, validação e rastreabilidade</p>
         </button>
 
         <button onClick={() => navigate('/admin/operacional')} className={`${cardClass} text-left hover:shadow-md transition-shadow`}>
           <p className="text-sm text-slate-500">Fluxo operacional</p>
           <p className="text-3xl font-bold text-slate-900 mt-2">{snapshot.totalBurials + snapshot.totalExhumations}</p>
-          <p className="text-xs text-slate-500 mt-2">{snapshot.totalBurials} sepultamentos e {snapshot.totalExhumations} exumacoes</p>
+          <p className="text-xs text-slate-500 mt-2">{snapshot.totalBurials} sepultamentos e {snapshot.totalExhumations} exumações</p>
         </button>
       </div>
 
       {/* Monthly Burial Trend BarChart */}
       {monthlyTrend.length > 0 && (
         <div className={cardClass}>
-          <h2 className="text-lg font-bold text-slate-800 mb-4">Tendencia mensal de sepultamentos</h2>
+          <h2 className="text-lg font-bold text-slate-800 mb-4">Tendência mensal de sepultamentos</h2>
           <div className="h-48">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={monthlyTrend}>
@@ -284,7 +286,7 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
         <div className={`${cardClass} xl:col-span-2`}>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-slate-800">Mapa de ocupacao</h2>
+            <h2 className="text-lg font-bold text-slate-800">Mapa de ocupação</h2>
             <button
               onClick={() => navigate('/admin/inventario')}
               className="text-sm text-blue-700 font-medium hover:underline"
@@ -339,7 +341,7 @@ export default function AdminDashboard() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-5 text-xs">
             <div className="bg-white/10 rounded-lg p-3">
-              <p className="text-slate-300">Alertas sanitarios</p>
+              <p className="text-slate-300">Alertas sanitários</p>
               <p className="text-xl font-bold flex items-center gap-1"><Droplets size={15} /> {snapshot.sanitaryAlerts}</p>
             </div>
             <div className="bg-white/10 rounded-lg p-3">
@@ -351,7 +353,7 @@ export default function AdminDashboard() {
               <p className="text-xl font-bold flex items-center gap-1"><ShieldAlert size={15} /> {snapshot.structuralFailures}</p>
             </div>
             <div className="bg-white/10 rounded-lg p-3">
-              <p className="text-slate-300">Pendencias docs</p>
+              <p className="text-slate-300">Pendências docs</p>
               <p className="text-xl font-bold flex items-center gap-1"><FileText size={15} /> {snapshot.pendingDocuments}</p>
             </div>
           </div>
@@ -379,9 +381,9 @@ export default function AdminDashboard() {
         </div>
 
         <div className={cardClass}>
-          <h2 className="text-lg font-bold text-slate-800 mb-3">Checklist sanitario</h2>
+          <h2 className="text-lg font-bold text-slate-800 mb-3">Checklist sanitário</h2>
           <p className="text-sm text-slate-500 mb-4">
-            Registre verificacoes ambientais e sanitarias para alimentar os indicadores de risco automaticamente.
+            Registre verificações ambientais e sanitárias para alimentar os indicadores de risco automaticamente.
           </p>
           <button
             onClick={() => setShowChecklist(true)}
@@ -400,10 +402,10 @@ export default function AdminDashboard() {
 
       {showChecklist && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden">
+          <div ref={checklistModalRef} role="dialog" aria-modal="true" aria-labelledby="checklist-modal-title" className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden">
             <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-              <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                <Droplets size={18} className="text-blue-600" /> Novo Checklist Sanitario
+              <h3 id="checklist-modal-title" className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <Droplets size={18} className="text-blue-600" /> Novo Checklist Sanitário
               </h3>
               <button onClick={() => setShowChecklist(false)} className="text-slate-500 hover:text-slate-700">Fechar</button>
             </div>
@@ -416,7 +418,7 @@ export default function AdminDashboard() {
                     value={checklist.area}
                     onChange={(e) => setChecklist((prev) => ({ ...prev, area: e.target.value }))}
                     className="w-full border border-slate-300 rounded-lg p-2.5"
-                    placeholder="Setor ou quadra"
+                    placeholder="Setor ou quadra" aria-label="Setor ou quadra"
                   />
                 </div>
                 <div>
@@ -432,8 +434,8 @@ export default function AdminDashboard() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm text-slate-600 mb-1">Nivel de risco</label>
-                  <select
+                  <label className="block text-sm text-slate-600 mb-1">Nível de risco</label>
+                  <select aria-label="Nível de risco"
                     value={checklist.riskLevel}
                     onChange={(e) => setChecklist((prev) => ({ ...prev, riskLevel: e.target.value as any }))}
                     className="w-full border border-slate-300 rounded-lg p-2.5 bg-white"
@@ -444,12 +446,12 @@ export default function AdminDashboard() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm text-slate-600 mb-1">Inspetor responsavel</label>
+                  <label className="block text-sm text-slate-600 mb-1">Inspetor responsável</label>
                   <input
                     value={checklist.inspector}
                     onChange={(e) => setChecklist((prev) => ({ ...prev, inspector: e.target.value }))}
                     className="w-full border border-slate-300 rounded-lg p-2.5"
-                    placeholder="Nome do responsavel"
+                    placeholder="Nome do responsável" aria-label="Nome do responsável"
                   />
                 </div>
               </div>
@@ -460,17 +462,17 @@ export default function AdminDashboard() {
                   value={checklist.findings}
                   onChange={(e) => setChecklist((prev) => ({ ...prev, findings: e.target.value }))}
                   className="w-full border border-slate-300 rounded-lg p-2.5 h-24"
-                  placeholder="Descreva riscos, anomalias e condicoes observadas"
+                  placeholder="Descreva riscos, anomalias e condições observadas" aria-label="Descreva riscos, anomalias e condições observadas"
                 />
               </div>
 
               <div>
-                <label className="block text-sm text-slate-600 mb-1">Recomendacao</label>
+                <label className="block text-sm text-slate-600 mb-1">Recomendação</label>
                 <textarea
                   value={checklist.recommendation}
                   onChange={(e) => setChecklist((prev) => ({ ...prev, recommendation: e.target.value }))}
                   className="w-full border border-slate-300 rounded-lg p-2.5 h-24"
-                  placeholder="Acao recomendada e prazo"
+                  placeholder="Ação recomendada e prazo" aria-label="Ação recomendada e prazo"
                 />
               </div>
 
@@ -500,9 +502,9 @@ export default function AdminDashboard() {
       {!loading && snapshot.priorities.length > 0 && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 text-amber-800 p-4 text-sm flex items-start gap-2">
           <AlertTriangle size={16} className="mt-0.5" />
-          A IA detectou prioridades de intervencao. Revise os detalhes no painel de agentes e relatorios.
+          A IA detectou prioridades de intervenção. Revise os detalhes no painel de agentes e relatórios.
           <button onClick={() => navigate('/admin/relatorios')} className="ml-2 text-amber-900 font-semibold underline">
-            Abrir relatorios
+            Abrir relatórios
           </button>
         </div>
       )}
@@ -510,7 +512,7 @@ export default function AdminDashboard() {
       <div className="rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-600 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Bot size={15} className="text-slate-500" />
-          IA aplicada a gestao sanitaria, ambiental e operacional ativa.
+          IA aplicada a gestão sanitária, ambiental e operacional ativa.
         </div>
         <button onClick={() => navigate('/admin/agentes')} className="text-blue-700 font-medium hover:underline">
           Configurar agentes

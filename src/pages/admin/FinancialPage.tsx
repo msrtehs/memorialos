@@ -12,11 +12,19 @@ import { Trash2 } from 'lucide-react';
 
 type Tab = 'transactions' | 'pricing' | 'projections';
 
+const referenceTypeLabel: Record<string, string> = {
+  service: 'Serviço',
+  burial: 'Sepultamento',
+  exhumation: 'Exumação',
+  maintenance: 'Manutenção',
+  other: 'Outro',
+};
+
 const pricingTable = [
-  { id: 'p1', item: 'Sepultamento padrao', description: 'Taxa operacional completa', price: 1200 },
-  { id: 'p2', item: 'Exumacao', description: 'Procedimento regulamentar', price: 950 },
-  { id: 'p3', item: 'Concessao jazigo', description: 'Concessao administrativa', price: 5000 },
-  { id: 'p4', item: 'Manutencao anual', description: 'Conservacao programada', price: 350 }
+  { id: 'p1', item: 'Sepultamento padrão', description: 'Taxa operacional completa', price: 1200 },
+  { id: 'p2', item: 'Exumação', description: 'Procedimento regulamentar', price: 950 },
+  { id: 'p3', item: 'Concessão jazigo', description: 'Concessão administrativa', price: 5000 },
+  { id: 'p4', item: 'Manutenção anual', description: 'Conservação programada', price: 350 }
 ];
 
 export default function FinancialPage() {
@@ -124,8 +132,8 @@ export default function FinancialPage() {
       <div className="flex justify-between items-center flex-wrap gap-4">
         <h1 className="text-2xl font-bold text-slate-800">Financeiro</h1>
         <div className="flex bg-white rounded-lg shadow-sm border border-slate-200 p-1 overflow-x-auto whitespace-nowrap">
-          <button onClick={() => setActiveTab('transactions')} className={`px-4 py-2 rounded-md text-sm font-medium ${activeTab === 'transactions' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}>Transacoes</button>
-          <button onClick={() => setActiveTab('pricing')} className={`px-4 py-2 rounded-md text-sm font-medium ${activeTab === 'pricing' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}>Tabela de precos</button>
+          <button onClick={() => setActiveTab('transactions')} className={`px-4 py-2 rounded-md text-sm font-medium ${activeTab === 'transactions' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}>Transações</button>
+          <button onClick={() => setActiveTab('pricing')} className={`px-4 py-2 rounded-md text-sm font-medium ${activeTab === 'pricing' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}>Tabela de preços</button>
           <button onClick={() => setActiveTab('projections')} className={`px-4 py-2 rounded-md text-sm font-medium ${activeTab === 'projections' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}>Consolidado</button>
         </div>
       </div>
@@ -133,19 +141,19 @@ export default function FinancialPage() {
       {activeTab === 'transactions' && (
         <div className="space-y-5">
           <form onSubmit={handleCreateRecord} className="bg-white border border-slate-200 rounded-xl p-4 grid grid-cols-1 md:grid-cols-6 gap-3">
-            <input value={form.description} onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))} className="md:col-span-2 border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Descricao do lancamento" required />
-            <select value={form.category} onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
+            <input value={form.description} onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))} className="md:col-span-2 border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Descrição do lancamento" aria-label="Descrição do lancamento" required />
+            <select aria-label="Categoria" value={form.category} onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
               <option value="income">Receita</option>
               <option value="expense">Despesa</option>
             </select>
-            <select value={form.referenceType} onChange={(e) => setForm((prev) => ({ ...prev, referenceType: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
-              <option value="service">Servico</option>
+            <select aria-label="Tipo de referência" value={form.referenceType} onChange={(e) => setForm((prev) => ({ ...prev, referenceType: e.target.value }))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
+              <option value="service">Serviço</option>
               <option value="burial">Sepultamento</option>
-              <option value="exhumation">Exumacao</option>
-              <option value="maintenance">Manutencao</option>
+              <option value="exhumation">Exumação</option>
+              <option value="maintenance">Manutenção</option>
               <option value="other">Outro</option>
             </select>
-            <input value={form.value} onChange={(e) => setForm((prev) => ({ ...prev, value: e.target.value }))} type="number" step="0.01" min="0" className="border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Valor" required />
+            <input value={form.value} onChange={(e) => setForm((prev) => ({ ...prev, value: e.target.value }))} type="number" step="0.01" min="0" className="border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Valor" aria-label="Valor" required />
             <div className="flex gap-2">
               <input value={form.occurredAt} onChange={(e) => setForm((prev) => ({ ...prev, occurredAt: e.target.value }))} type="date" className="border border-slate-300 rounded-lg px-3 py-2 text-sm flex-1" required />
               <button type="submit" disabled={saving} className="bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-60 flex items-center gap-1">
@@ -159,7 +167,7 @@ export default function FinancialPage() {
               <thead className="bg-slate-50 text-slate-700 border-b border-slate-200">
                 <tr>
                   <th className="px-4 py-3">Data</th>
-                  <th className="px-4 py-3">Descricao</th>
+                  <th className="px-4 py-3">Descrição</th>
                   <th className="px-4 py-3">Categoria</th>
                   <th className="px-4 py-3">Valor</th>
                   <th className="px-4 py-3 text-right">Ações</th>
@@ -173,7 +181,7 @@ export default function FinancialPage() {
                   <tr key={item.id} className="hover:bg-slate-50">
                     <td className="px-4 py-3 text-slate-600">{item.occurredAt}</td>
                     <td className="px-4 py-3 font-medium text-slate-900">{item.description}</td>
-                    <td className="px-4 py-3 text-slate-600">{item.referenceType}</td>
+                    <td className="px-4 py-3 text-slate-600">{referenceTypeLabel[item.referenceType] || item.referenceType}</td>
                     <td className={`px-4 py-3 font-semibold ${item.category === 'income' ? 'text-emerald-700' : 'text-rose-700'}`}>
                       {item.category === 'income' ? '+' : '-'} {formatCurrency(Number(item.value))}
                     </td>

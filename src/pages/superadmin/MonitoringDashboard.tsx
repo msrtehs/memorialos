@@ -95,7 +95,7 @@ const SEVERITY_COLORS = {
 };
 
 const MODULE_LABELS = {
-  technical: 'Tecnico',
+  technical: 'Técnico',
   operational: 'Operacional',
   memorial: 'Memorial',
 };
@@ -114,7 +114,7 @@ function formatTimestamp(iso: string): string {
   });
 }
 
-// ── Componente: Card de Metrica ─────────────────────────────
+// ── Componente: Card de Métrica ─────────────────────────────
 function MetricCard({
   label, value, icon: Icon, color = '#3b82f6', sub,
 }: {
@@ -145,7 +145,7 @@ function MetricCard({
 
 // ── Componente: Badge de Severidade ─────────────────────────
 function SeverityBadge({ severity }: { severity: Alert['severity'] }) {
-  const labels = { critical: 'Critico', warning: 'Atencao', info: 'Info' };
+  const labels = { critical: 'Crítico', warning: 'Atenção', info: 'Info' };
   return (
     <span
       className="text-xs font-semibold px-2 py-0.5 rounded-full text-white"
@@ -226,7 +226,7 @@ export default function MonitoringDashboard() {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center text-gray-500">
           <AlertTriangle className="mx-auto mb-3 text-yellow-500" size={32} />
-          <p>Nenhuma metrica disponivel. Execute o monitor pela primeira vez.</p>
+          <p>Nenhuma métrica disponível. Execute o monitor pela primeira vez.</p>
           <button
             onClick={fetchData}
             className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700"
@@ -251,8 +251,8 @@ export default function MonitoringDashboard() {
   }));
 
   const TABS = [
-    { key: 'overview', label: 'Visao Geral' },
-    { key: 'technical', label: 'Tecnico' },
+    { key: 'overview', label: 'Visão Geral' },
+    { key: 'technical', label: 'Técnico' },
     { key: 'operational', label: 'Operacional' },
     { key: 'memorial', label: 'Memoriais' },
     { key: 'alerts', label: `Alertas ${metrics.alertsOpen.length > 0 ? `(${metrics.alertsOpen.length})` : ''}` },
@@ -327,8 +327,8 @@ export default function MonitoringDashboard() {
                 />
               </div>
               <span className="text-xs text-gray-500">
-                {metrics.systemHealthScore >= 80 ? 'Sistema saudavel' :
-                 metrics.systemHealthScore >= 50 ? 'Atencao necessaria' :
+                {metrics.systemHealthScore >= 80 ? 'Sistema saudável' :
+                 metrics.systemHealthScore >= 50 ? 'Atenção necessária' :
                  'Problemas criticos detectados'}
               </span>
             </div>
@@ -372,16 +372,16 @@ export default function MonitoringDashboard() {
         {activeTab === 'overview' && (
           <div className="space-y-6">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <MetricCard label="Usuarios ativos/24h" value={t.activeUsers24h} icon={Users} color="#3b82f6" />
+              <MetricCard label="Usuários ativos/24h" value={t.activeUsers24h} icon={Users} color="#3b82f6" />
               <MetricCard label="Novos cadastros/24h" value={t.newSignups24h} icon={TrendingUp} color="#22c55e" />
               <MetricCard label="Memoriais totais" value={m.totalMemoriais} icon={FileText} color="#8b5cf6" />
               <MetricCard label="Visitas hoje" value={m.visitasHoje} icon={Heart} color="#ec4899" sub={`${m.visitasSemana} na semana`} />
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <MetricCard label="Servicos pendentes" value={o.servicosPendentes} icon={Clock} color={o.servicosAtrasados > 0 ? '#f59e0b' : '#6b7280'} sub={o.servicosAtrasados > 0 ? `${o.servicosAtrasados} atrasados` : 'Sem atrasos'} />
+              <MetricCard label="Serviços pendentes" value={o.servicosPendentes} icon={Clock} color={o.servicosAtrasados > 0 ? '#f59e0b' : '#6b7280'} sub={o.servicosAtrasados > 0 ? `${o.servicosAtrasados} atrasados` : 'Sem atrasos'} />
               <MetricCard label="Planos funerarios" value={o.planosAtivos} icon={Shield} color="#0891b2" sub={`${m.planosFunerariosVencendo30d} vencem em 30d`} />
-              <MetricCard label="Jazigos s/ manutencao" value={m.jazigosSemManutencao90d} icon={Wrench} color={m.jazigosSemManutencao90d > 5 ? '#f59e0b' : '#6b7280'} />
-              <MetricCard label="Obitos p/ validar" value={o.comunicadosObitoSemValidar} icon={AlertTriangle} color={o.comunicadosObitoSemValidar > 0 ? '#ef4444' : '#22c55e'} />
+              <MetricCard label="Jazigos s/ manutenção" value={m.jazigosSemManutencao90d} icon={Wrench} color={m.jazigosSemManutencao90d > 5 ? '#f59e0b' : '#6b7280'} />
+              <MetricCard label="Óbitos p/ validar" value={o.comunicadosObitoSemValidar} icon={AlertTriangle} color={o.comunicadosObitoSemValidar > 0 ? '#ef4444' : '#22c55e'} />
             </div>
 
             {chartHistory.length > 0 && (
@@ -412,26 +412,26 @@ export default function MonitoringDashboard() {
           <div className="space-y-6">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <MetricCard label="Tempo de resposta" value={`${t.responseTimeMs}ms`} icon={Activity} color={t.responseTimeMs > 3000 ? '#f59e0b' : '#22c55e'} />
-              <MetricCard label="Latencia Firestore" value={t.firestoreLatencyMs === -1 ? 'ERRO' : `${t.firestoreLatencyMs}ms`} icon={Activity} color={t.firestoreLatencyMs === -1 ? '#ef4444' : '#22c55e'} />
+              <MetricCard label="Latência Firestore" value={t.firestoreLatencyMs === -1 ? 'ERRO' : `${t.firestoreLatencyMs}ms`} icon={Activity} color={t.firestoreLatencyMs === -1 ? '#ef4444' : '#22c55e'} />
               <MetricCard label="Logins com falha/24h" value={t.failedLogins24h} icon={Shield} color={t.failedLogins24h > 10 ? '#ef4444' : '#6b7280'} />
               <MetricCard label="Erros nas Functions" value={t.functionsErrors24h} icon={AlertTriangle} color={t.functionsErrors24h > 0 ? '#f59e0b' : '#22c55e'} />
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               <MetricCard label="Chamadas de IA hoje" value={t.geminiApiCallsToday} icon={Activity} color={t.geminiApiCallsToday > 800 ? '#f59e0b' : '#8b5cf6'} sub="Chamadas às Cloud Functions de IA" />
-              <MetricCard label="Usuarios ativos/24h" value={t.activeUsers24h} icon={Users} color="#3b82f6" />
+              <MetricCard label="Usuários ativos/24h" value={t.activeUsers24h} icon={Users} color="#3b82f6" />
               <MetricCard label="Novos cadastros/24h" value={t.newSignups24h} icon={TrendingUp} color="#22c55e" />
             </div>
 
             {chartHistory.length > 0 && (
               <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
-                <h3 className="text-sm font-semibold text-gray-700 mb-4">Tempo de Resposta (ms) — Historico</h3>
+                <h3 className="text-sm font-semibold text-gray-700 mb-4">Tempo de Resposta (ms) — Histórico</h3>
                 <ResponsiveContainer width="100%" height={200}>
                   <LineChart data={chartHistory}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                     <XAxis dataKey="hora" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
                     <YAxis tick={{ fontSize: 10 }} />
                     <Tooltip />
-                    <Line type="monotone" dataKey="responseTimeMs" stroke="#3b82f6" strokeWidth={2} dot={false} name="Latencia (ms)" />
+                    <Line type="monotone" dataKey="responseTimeMs" stroke="#3b82f6" strokeWidth={2} dot={false} name="Latência (ms)" />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -444,27 +444,27 @@ export default function MonitoringDashboard() {
           <div className="space-y-6">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <MetricCard label="Memoriais criados/24h" value={o.memoriaisCreados24h} icon={FileText} color="#22c55e" />
-              <MetricCard label="Servicos solicitados/24h" value={o.servicosSolicitados24h} icon={Wrench} color="#3b82f6" />
-              <MetricCard label="Servicos pendentes" value={o.servicosPendentes} icon={Clock} color="#f59e0b" />
-              <MetricCard label="Servicos atrasados (+72h)" value={o.servicosAtrasados} icon={AlertTriangle} color={o.servicosAtrasados > 5 ? '#ef4444' : '#f59e0b'} />
+              <MetricCard label="Serviços solicitados/24h" value={o.servicosSolicitados24h} icon={Wrench} color="#3b82f6" />
+              <MetricCard label="Serviços pendentes" value={o.servicosPendentes} icon={Clock} color="#f59e0b" />
+              <MetricCard label="Serviços atrasados (+72h)" value={o.servicosAtrasados} icon={AlertTriangle} color={o.servicosAtrasados > 5 ? '#ef4444' : '#f59e0b'} />
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <MetricCard label="Planos ativos" value={o.planosAtivos} icon={Shield} color="#0891b2" />
               <MetricCard label="Gestores ativos" value={o.gestoresAtivos} icon={Users} color={o.gestoresAtivos === 0 ? '#ef4444' : '#22c55e'} />
-              <MetricCard label="Acoes SuperAdmin/24h" value={o.acoesSuperAdmin24h} icon={Shield} color="#8b5cf6" />
-              <MetricCard label="Obitos p/ validar" value={o.comunicadosObitoSemValidar} icon={AlertTriangle} color={o.comunicadosObitoSemValidar > 0 ? '#ef4444' : '#22c55e'} />
+              <MetricCard label="Ações SuperAdmin/24h" value={o.acoesSuperAdmin24h} icon={Shield} color="#8b5cf6" />
+              <MetricCard label="Óbitos p/ validar" value={o.comunicadosObitoSemValidar} icon={AlertTriangle} color={o.comunicadosObitoSemValidar > 0 ? '#ef4444' : '#22c55e'} />
             </div>
 
             {chartHistory.length > 0 && (
               <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
-                <h3 className="text-sm font-semibold text-gray-700 mb-4">Servicos Pendentes — Historico</h3>
+                <h3 className="text-sm font-semibold text-gray-700 mb-4">Serviços Pendentes — Histórico</h3>
                 <ResponsiveContainer width="100%" height={200}>
                   <BarChart data={chartHistory}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                     <XAxis dataKey="hora" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
                     <YAxis tick={{ fontSize: 10 }} />
                     <Tooltip />
-                    <Bar dataKey="servicosPendentes" fill="#3b82f6" name="Servicos Pendentes" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="servicosPendentes" fill="#3b82f6" name="Serviços Pendentes" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -482,14 +482,14 @@ export default function MonitoringDashboard() {
               <MetricCard label="Sem foto" value={m.memoriaisSemFoto} icon={FileText} color={m.memoriaisSemFoto > 10 ? '#f59e0b' : '#6b7280'} />
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              <MetricCard label="Sem atualizacao +30d" value={m.memoriaisSemAtualizacao30d} icon={Clock} color={m.memoriaisSemAtualizacao30d > 20 ? '#f59e0b' : '#6b7280'} />
-              <MetricCard label="Jazigos s/ manutencao" value={m.jazigosSemManutencao90d} icon={Wrench} color={m.jazigosSemManutencao90d > 5 ? '#f59e0b' : '#22c55e'} sub="+90 dias" />
-              <MetricCard label="Planos vencendo" value={m.planosFunerariosVencendo30d} icon={AlertTriangle} color={m.planosFunerariosVencendo30d > 0 ? '#f59e0b' : '#22c55e'} sub="nos proximos 30 dias" />
+              <MetricCard label="Sem atualização +30d" value={m.memoriaisSemAtualizacao30d} icon={Clock} color={m.memoriaisSemAtualizacao30d > 20 ? '#f59e0b' : '#6b7280'} />
+              <MetricCard label="Jazigos s/ manutenção" value={m.jazigosSemManutencao90d} icon={Wrench} color={m.jazigosSemManutencao90d > 5 ? '#f59e0b' : '#22c55e'} sub="+90 dias" />
+              <MetricCard label="Planos vencendo" value={m.planosFunerariosVencendo30d} icon={AlertTriangle} color={m.planosFunerariosVencendo30d > 0 ? '#f59e0b' : '#22c55e'} sub="nos próximos 30 dias" />
             </div>
 
             {chartHistory.length > 0 && (
               <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
-                <h3 className="text-sm font-semibold text-gray-700 mb-4">Visitas aos Memoriais — Historico</h3>
+                <h3 className="text-sm font-semibold text-gray-700 mb-4">Visitas aos Memoriais — Histórico</h3>
                 <ResponsiveContainer width="100%" height={200}>
                   <AreaChart data={chartHistory}>
                     <defs>

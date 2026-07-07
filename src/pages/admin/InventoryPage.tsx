@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useModal } from '@/hooks/useModal';
 import toast from 'react-hot-toast';
 import { reportLoadError } from '@/lib/errors';
 import { deleteField } from 'firebase/firestore';
@@ -35,6 +36,7 @@ export default function InventoryPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const { containerRef: newPlotModalRef } = useModal(isModalOpen, () => setIsModalOpen(false));
   const [snapshot, setSnapshot] = useState<any>(null);
 
   const [search, setSearch] = useState('');
@@ -42,6 +44,7 @@ export default function InventoryPage() {
   const [riskFilter, setRiskFilter] = useState('all');
   const [sectorFilter, setSectorFilter] = useState('all');
   const [selectedPlot, setSelectedPlot] = useState<Plot | null>(null);
+  const { containerRef: plotDetailModalRef } = useModal(!!selectedPlot, () => setSelectedPlot(null));
   const [inspectStatus, setInspectStatus] = useState<Plot['status']>('available');
 
   const [newPlot, setNewPlot] = useState({
@@ -243,7 +246,7 @@ export default function InventoryPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap justify-between items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Inventario georreferenciado</h1>
+          <h1 className="text-2xl font-bold text-slate-800">Inventário georreferenciado</h1>
           <p className="text-sm text-slate-500">
             Mapa interativo, cadastro detalhado e indicadores de risco por jazigo/setor.
           </p>
@@ -277,30 +280,30 @@ export default function InventoryPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-300 text-sm"
-            placeholder="Buscar por codigo, setor ou ocupante"
+            placeholder="Buscar por código, setor ou ocupante" aria-label="Buscar por código, setor ou ocupante"
           />
         </div>
 
-        <select value={sectorFilter} onChange={(e) => setSectorFilter(e.target.value)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white">
+        <select aria-label="Filtrar por setor" value={sectorFilter} onChange={(e) => setSectorFilter(e.target.value)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white">
           <option value="all">Todos os setores</option>
           {Array.from(new Set(plots.map((plot) => plot.sectorId || plot.sectorName).filter(Boolean))).map((sector) => (
             <option key={String(sector)} value={String(sector)}>{String(sector)}</option>
           ))}
         </select>
 
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white">
+        <select aria-label="Filtrar por status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white">
           <option value="all">Todos os status</option>
-          <option value="available">Disponivel</option>
+          <option value="available">Disponível</option>
           <option value="occupied">Ocupado</option>
           <option value="reserved">Reservado</option>
           <option value="blocked">Bloqueado</option>
         </select>
 
         <div className="flex gap-2">
-          <select value={riskFilter} onChange={(e) => setRiskFilter(e.target.value)} className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white">
+          <select aria-label="Filtrar por risco" value={riskFilter} onChange={(e) => setRiskFilter(e.target.value)} className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white">
             <option value="all">Risco geral</option>
             <option value="high">Alto</option>
-            <option value="medium">Medio</option>
+            <option value="medium">Médio</option>
             <option value="low">Baixo</option>
           </select>
           <button
@@ -327,7 +330,7 @@ export default function InventoryPage() {
             <span className="text-xs text-slate-500">{filteredPlots.length} jazigos visiveis</span>
           </div>
           <div className="px-5 py-3 border-b border-slate-200 flex items-center gap-5 text-xs text-slate-600">
-            {([['bg-emerald-400', 'Disponivel'], ['bg-rose-400', 'Ocupado'], ['bg-amber-400', 'Reservado'], ['bg-slate-400', 'Bloqueado']] as [string, string][]).map(([color, label]) => (
+            {([['bg-emerald-400', 'Disponível'], ['bg-rose-400', 'Ocupado'], ['bg-amber-400', 'Reservado'], ['bg-slate-400', 'Bloqueado']] as [string, string][]).map(([color, label]) => (
               <span key={label} className="flex items-center gap-1.5">
                 <span className={`w-3 h-3 rounded-full ${color}`}></span>{label}
               </span>
@@ -368,7 +371,7 @@ export default function InventoryPage() {
             )}
             <div className="flex gap-5 text-xs text-slate-500 mt-3">
               <span><strong className="text-slate-700">{plots.filter((p) => p.status === 'occupied').length}</strong> ocupados</span>
-              <span><strong className="text-slate-700">{plots.filter((p) => p.status === 'available').length}</strong> disponiveis</span>
+              <span><strong className="text-slate-700">{plots.filter((p) => p.status === 'available').length}</strong> disponíveis</span>
               <span><strong className="text-slate-700">{plots.filter((p) => p.status === 'reserved').length}</strong> reservados</span>
               <span><strong className="text-slate-700">{plots.filter((p) => p.status === 'blocked').length}</strong> bloqueados</span>
             </div>
@@ -381,7 +384,7 @@ export default function InventoryPage() {
           <table className="w-full min-w-[860px] text-sm text-left">
             <thead className="bg-slate-50 text-slate-700 border-b border-slate-200">
               <tr>
-                <th className="px-4 py-3">Codigo</th>
+                <th className="px-4 py-3">Código</th>
                 <th className="px-4 py-3">Setor</th>
                 <th className="px-4 py-3">Lat / Lng</th>
                 <th className="px-4 py-3">Risco</th>
@@ -399,7 +402,7 @@ export default function InventoryPage() {
                     {plot.latitude ? Number(plot.latitude).toFixed(6) : '-'} / {plot.longitude ? Number(plot.longitude).toFixed(6) : '-'}
                   </td>
                   <td className="px-4 py-3 text-xs text-slate-600">
-                    Sanitario: {plot.sanitaryRisk || 'low'}<br />
+                    Sanitário: {plot.sanitaryRisk || 'low'}<br />
                     Ambiental: {plot.environmentalRisk || 'low'}<br />
                     Estrutural: {plot.structuralStatus || 'ok'}
                   </td>
@@ -410,13 +413,13 @@ export default function InventoryPage() {
                   </td>
                   <td className="px-4 py-3 text-xs text-slate-600">{(plot as any).concessionHolder || '-'}</td>
                   <td className="px-4 py-3">
-                    <select
+                    <select aria-label="Status"
                       value={plot.status}
                       onChange={(e) => handleStatusChange(plot.id!, e.target.value as Plot['status'])}
                       className="border border-slate-300 rounded-md px-2 py-1 text-xs bg-white"
                       disabled={saving}
                     >
-                      <option value="available">Disponivel</option>
+                      <option value="available">Disponível</option>
                       <option value="occupied">Ocupado</option>
                       <option value="reserved">Reservado</option>
                       <option value="blocked">Bloqueado</option>
@@ -437,14 +440,14 @@ export default function InventoryPage() {
       {viewMode === 'ai' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <h2 className="text-lg font-bold text-slate-800 mb-3">Diagnostico IA do inventario</h2>
+            <h2 className="text-lg font-bold text-slate-800 mb-3">Diagnóstico IA do inventário</h2>
             {snapshot ? (
               <div className="space-y-3 text-sm">
                 <div className="p-3 rounded-lg border border-slate-200 bg-slate-50">
-                  Saturacao atual: <span className="font-semibold">{snapshot.occupancyRate}%</span>
+                  Saturação atual: <span className="font-semibold">{snapshot.occupancyRate}%</span>
                 </div>
                 <div className="p-3 rounded-lg border border-slate-200 bg-slate-50">
-                  Riscos sanitarios: <span className="font-semibold">{snapshot.sanitaryAlerts}</span>
+                  Riscos sanitários: <span className="font-semibold">{snapshot.sanitaryAlerts}</span>
                 </div>
                 <div className="p-3 rounded-lg border border-slate-200 bg-slate-50">
                   Riscos ambientais: <span className="font-semibold">{snapshot.environmentalAlerts}</span>
@@ -453,7 +456,7 @@ export default function InventoryPage() {
                   Falhas estruturais: <span className="font-semibold">{snapshot.structuralFailures}</span>
                 </div>
                 <div className="p-3 rounded-lg border border-slate-200 bg-slate-50">
-                  Pendencias documentais: <span className="font-semibold">{snapshot.pendingDocuments}</span>
+                  Pendências documentais: <span className="font-semibold">{snapshot.pendingDocuments}</span>
                 </div>
               </div>
             ) : (
@@ -461,11 +464,11 @@ export default function InventoryPage() {
             )}
           </div>
           <div className="bg-gradient-to-br from-slate-900 to-indigo-900 rounded-xl p-6 text-white">
-            <h3 className="font-bold flex items-center gap-2"><Bot size={16} /> Acoes recomendadas</h3>
+            <h3 className="font-bold flex items-center gap-2"><Bot size={16} /> Ações recomendadas</h3>
             <ul className="mt-4 space-y-3 text-sm">
               <li className="bg-white/10 rounded-lg p-3">Priorizar setores com risco alto e status estrutural critico.</li>
               <li className="bg-white/10 rounded-lg p-3">Liberar jazigos reservados sem uso com mais de 30 dias.</li>
-              <li className="bg-white/10 rounded-lg p-3">Regularizar pendencias documentais para reduzir passivo juridico.</li>
+              <li className="bg-white/10 rounded-lg p-3">Regularizar pendências documentais para reduzir passivo jurídico.</li>
             </ul>
           </div>
         </div>
@@ -473,16 +476,16 @@ export default function InventoryPage() {
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl overflow-hidden">
+          <div ref={newPlotModalRef} role="dialog" aria-modal="true" aria-labelledby="new-plot-modal-title" className="bg-white rounded-xl shadow-xl w-full max-w-3xl overflow-hidden">
             <div className="px-5 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
-              <h3 className="font-bold text-slate-800">Novo jazigo georreferenciado</h3>
+              <h3 id="new-plot-modal-title" className="font-bold text-slate-800">Novo jazigo georreferenciado</h3>
               <button onClick={() => setIsModalOpen(false)} className="text-sm text-slate-600 hover:text-slate-900">Fechar</button>
             </div>
             <form onSubmit={handleSavePlot} className="p-5 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm text-slate-600 block mb-1">Setor</label>
-                  <select
+                  <select aria-label="Setor"
                     value={newPlot.sectorId}
                     onChange={(e) => setNewPlot((prev) => ({ ...prev, sectorId: e.target.value }))}
                     className="w-full border border-slate-300 rounded-lg p-2.5 bg-white"
@@ -494,12 +497,12 @@ export default function InventoryPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-sm text-slate-600 block mb-1">Codigo</label>
+                  <label className="text-sm text-slate-600 block mb-1">Código</label>
                   <input
                     value={newPlot.code}
                     onChange={(e) => setNewPlot((prev) => ({ ...prev, code: e.target.value }))}
                     className="w-full border border-slate-300 rounded-lg p-2.5"
-                    placeholder="QDA-0001"
+                    placeholder="QDA-0001" aria-label="QDA-0001"
                     required
                   />
                 </div>
@@ -508,16 +511,16 @@ export default function InventoryPage() {
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
                   <label className="text-sm text-slate-600 block mb-1">Tipo</label>
-                  <select value={newPlot.type} onChange={(e) => setNewPlot((prev) => ({ ...prev, type: e.target.value as Plot['type'] }))} className="w-full border border-slate-300 rounded-lg p-2.5 bg-white">
+                  <select aria-label="Tipo" value={newPlot.type} onChange={(e) => setNewPlot((prev) => ({ ...prev, type: e.target.value as Plot['type'] }))} className="w-full border border-slate-300 rounded-lg p-2.5 bg-white">
                     <option value="Jazigo">Jazigo</option>
-                    <option value="Mausoleu">Mausoleu</option>
-                    <option value="Ossuario">Ossuario</option>
+                    <option value="Mausoleu">Mausoléu</option>
+                    <option value="Ossuario">Ossuário</option>
                   </select>
                 </div>
                 <div>
                   <label className="text-sm text-slate-600 block mb-1">Status</label>
-                  <select value={newPlot.status} onChange={(e) => setNewPlot((prev) => ({ ...prev, status: e.target.value as Plot['status'] }))} className="w-full border border-slate-300 rounded-lg p-2.5 bg-white">
-                    <option value="available">Disponivel</option>
+                  <select aria-label="Status" value={newPlot.status} onChange={(e) => setNewPlot((prev) => ({ ...prev, status: e.target.value as Plot['status'] }))} className="w-full border border-slate-300 rounded-lg p-2.5 bg-white">
+                    <option value="available">Disponível</option>
                     <option value="reserved">Reservado</option>
                     <option value="occupied">Ocupado</option>
                     <option value="blocked">Bloqueado</option>
@@ -536,11 +539,11 @@ export default function InventoryPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm text-slate-600 block mb-1">Latitude</label>
-                  <input value={newPlot.latitude} onChange={(e) => setNewPlot((prev) => ({ ...prev, latitude: e.target.value }))} className="w-full border border-slate-300 rounded-lg p-2.5" placeholder="-23.550520" />
+                  <input value={newPlot.latitude} onChange={(e) => setNewPlot((prev) => ({ ...prev, latitude: e.target.value }))} className="w-full border border-slate-300 rounded-lg p-2.5" placeholder="-23.550520" aria-label="Latitude" />
                 </div>
                 <div>
                   <label className="text-sm text-slate-600 block mb-1">Longitude</label>
-                  <input value={newPlot.longitude} onChange={(e) => setNewPlot((prev) => ({ ...prev, longitude: e.target.value }))} className="w-full border border-slate-300 rounded-lg p-2.5" placeholder="-46.633308" />
+                  <input value={newPlot.longitude} onChange={(e) => setNewPlot((prev) => ({ ...prev, longitude: e.target.value }))} className="w-full border border-slate-300 rounded-lg p-2.5" placeholder="-46.633308" aria-label="Longitude" />
                 </div>
               </div>
 
@@ -551,7 +554,7 @@ export default function InventoryPage() {
                     <input type="date" value={newPlot.burialDate} onChange={(e) => setNewPlot((prev) => ({ ...prev, burialDate: e.target.value }))} className="w-full border border-slate-300 rounded-lg p-2.5" />
                   </div>
                   <div>
-                    <label className="text-sm text-slate-600 block mb-1">Prazo exumacao (anos)</label>
+                    <label className="text-sm text-slate-600 block mb-1">Prazo exumação (anos)</label>
                     <input type="number" value={newPlot.exhumationDeadlineYears} min={1} max={99} onChange={(e) => setNewPlot((prev) => ({ ...prev, exhumationDeadlineYears: Number(e.target.value) }))} className="w-full border border-slate-300 rounded-lg p-2.5" />
                   </div>
                 </div>
@@ -559,30 +562,30 @@ export default function InventoryPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
-                  <label className="text-sm text-slate-600 block mb-1">Titular da concessao</label>
-                  <input value={newPlot.concessionHolder} onChange={(e) => setNewPlot((prev) => ({ ...prev, concessionHolder: e.target.value }))} className="w-full border border-slate-300 rounded-lg p-2.5" placeholder="Nome completo" />
+                  <label className="text-sm text-slate-600 block mb-1">Titular da concessão</label>
+                  <input value={newPlot.concessionHolder} onChange={(e) => setNewPlot((prev) => ({ ...prev, concessionHolder: e.target.value }))} className="w-full border border-slate-300 rounded-lg p-2.5" placeholder="Nome completo" aria-label="Nome completo" />
                 </div>
                 <div>
-                  <label className="text-sm text-slate-600 block mb-1">Tipo concessao</label>
-                  <select value={newPlot.concessionType} onChange={(e) => setNewPlot((prev) => ({ ...prev, concessionType: e.target.value as any }))} className="w-full border border-slate-300 rounded-lg p-2.5 bg-white">
+                  <label className="text-sm text-slate-600 block mb-1">Tipo concessão</label>
+                  <select aria-label="Tipo de concessão" value={newPlot.concessionType} onChange={(e) => setNewPlot((prev) => ({ ...prev, concessionType: e.target.value as any }))} className="w-full border border-slate-300 rounded-lg p-2.5 bg-white">
                     <option value="perpetual">Perpetua</option>
-                    <option value="temporary">Temporaria</option>
+                    <option value="temporary">Temporária</option>
                   </select>
                 </div>
                 <div>
-                  <label className="text-sm text-slate-600 block mb-1">Inicio concessao</label>
+                  <label className="text-sm text-slate-600 block mb-1">Inicio concessão</label>
                   <input type="date" value={newPlot.concessionStartDate} onChange={(e) => setNewPlot((prev) => ({ ...prev, concessionStartDate: e.target.value }))} className="w-full border border-slate-300 rounded-lg p-2.5" />
                 </div>
                 <div>
-                  <label className="text-sm text-slate-600 block mb-1">Vencimento concessao</label>
+                  <label className="text-sm text-slate-600 block mb-1">Vencimento concessão</label>
                   <input type="date" value={newPlot.concessionEndDate} onChange={(e) => setNewPlot((prev) => ({ ...prev, concessionEndDate: e.target.value }))} className="w-full border border-slate-300 rounded-lg p-2.5" />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
-                  <label className="text-sm text-slate-600 block mb-1">Risco sanitario</label>
-                  <select value={newPlot.sanitaryRisk} onChange={(e) => setNewPlot((prev) => ({ ...prev, sanitaryRisk: e.target.value as any }))} className="w-full border border-slate-300 rounded-lg p-2.5 bg-white">
+                  <label className="text-sm text-slate-600 block mb-1">Risco sanitário</label>
+                  <select aria-label="Risco sanitário" value={newPlot.sanitaryRisk} onChange={(e) => setNewPlot((prev) => ({ ...prev, sanitaryRisk: e.target.value as any }))} className="w-full border border-slate-300 rounded-lg p-2.5 bg-white">
                     <option value="low">Baixo</option>
                     <option value="medium">Medio</option>
                     <option value="high">Alto</option>
@@ -590,7 +593,7 @@ export default function InventoryPage() {
                 </div>
                 <div>
                   <label className="text-sm text-slate-600 block mb-1">Risco ambiental</label>
-                  <select value={newPlot.environmentalRisk} onChange={(e) => setNewPlot((prev) => ({ ...prev, environmentalRisk: e.target.value as any }))} className="w-full border border-slate-300 rounded-lg p-2.5 bg-white">
+                  <select aria-label="Risco ambiental" value={newPlot.environmentalRisk} onChange={(e) => setNewPlot((prev) => ({ ...prev, environmentalRisk: e.target.value as any }))} className="w-full border border-slate-300 rounded-lg p-2.5 bg-white">
                     <option value="low">Baixo</option>
                     <option value="medium">Medio</option>
                     <option value="high">Alto</option>
@@ -598,15 +601,15 @@ export default function InventoryPage() {
                 </div>
                 <div>
                   <label className="text-sm text-slate-600 block mb-1">Estrutural</label>
-                  <select value={newPlot.structuralStatus} onChange={(e) => setNewPlot((prev) => ({ ...prev, structuralStatus: e.target.value as any }))} className="w-full border border-slate-300 rounded-lg p-2.5 bg-white">
+                  <select aria-label="Situação estrutural" value={newPlot.structuralStatus} onChange={(e) => setNewPlot((prev) => ({ ...prev, structuralStatus: e.target.value as any }))} className="w-full border border-slate-300 rounded-lg p-2.5 bg-white">
                     <option value="ok">OK</option>
-                    <option value="attention">Atencao</option>
-                    <option value="critical">Critico</option>
+                    <option value="attention">Atenção</option>
+                    <option value="critical">Crítico</option>
                   </select>
                 </div>
                 <div>
                   <label className="text-sm text-slate-600 block mb-1">Doc. status</label>
-                  <select value={newPlot.documentStatus} onChange={(e) => setNewPlot((prev) => ({ ...prev, documentStatus: e.target.value as any }))} className="w-full border border-slate-300 rounded-lg p-2.5 bg-white">
+                  <select aria-label="Situação documental" value={newPlot.documentStatus} onChange={(e) => setNewPlot((prev) => ({ ...prev, documentStatus: e.target.value as any }))} className="w-full border border-slate-300 rounded-lg p-2.5 bg-white">
                     <option value="regular">Regular</option>
                     <option value="pending">Pendente</option>
                   </select>
@@ -628,9 +631,9 @@ export default function InventoryPage() {
 
       {selectedPlot && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden">
+          <div ref={plotDetailModalRef} role="dialog" aria-modal="true" aria-labelledby="plot-detail-modal-title" className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden">
             <div className="px-5 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
-              <h3 className="font-bold text-slate-800">Jazigo {selectedPlot.code}</h3>
+              <h3 id="plot-detail-modal-title" className="font-bold text-slate-800">Jazigo {selectedPlot.code}</h3>
               <button onClick={() => setSelectedPlot(null)} className="text-sm text-slate-600 hover:text-slate-900">Fechar</button>
             </div>
             <div className="p-5 space-y-4 text-sm">
@@ -659,14 +662,14 @@ export default function InventoryPage() {
                 )}
                 {(selectedPlot as any).exhumationDeadlineYears && (
                   <div>
-                    <p className="text-xs text-slate-500">Prazo exumacao</p>
+                    <p className="text-xs text-slate-500">Prazo exumação</p>
                     <p className="font-medium text-slate-800">{(selectedPlot as any).exhumationDeadlineYears} anos</p>
                   </div>
                 )}
               </div>
               <div className="grid grid-cols-3 gap-2 text-xs">
                 <span className={`px-2 py-1 rounded-full text-center border ${selectedPlot.sanitaryRisk === 'high' ? 'bg-rose-100 text-rose-700 border-rose-200' : selectedPlot.sanitaryRisk === 'medium' ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
-                  Sanitario: {selectedPlot.sanitaryRisk || 'low'}
+                  Sanitário: {selectedPlot.sanitaryRisk || 'low'}
                 </span>
                 <span className={`px-2 py-1 rounded-full text-center border ${selectedPlot.environmentalRisk === 'high' ? 'bg-rose-100 text-rose-700 border-rose-200' : selectedPlot.environmentalRisk === 'medium' ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
                   Ambiental: {selectedPlot.environmentalRisk || 'low'}
@@ -682,7 +685,7 @@ export default function InventoryPage() {
                   onChange={(e) => setInspectStatus(e.target.value as Plot['status'])}
                   className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white flex-1"
                 >
-                  <option value="available">Disponivel</option>
+                  <option value="available">Disponível</option>
                   <option value="occupied">Ocupado</option>
                   <option value="reserved">Reservado</option>
                   <option value="blocked">Bloqueado</option>
@@ -705,7 +708,7 @@ export default function InventoryPage() {
 
       {(loading || saving) && (
         <div className="text-xs text-slate-500 flex items-center gap-2">
-          <Filter size={14} className="animate-pulse" /> Processando dados do inventario...
+          <Filter size={14} className="animate-pulse" /> Processando dados do inventário...
         </div>
       )}
     </div>

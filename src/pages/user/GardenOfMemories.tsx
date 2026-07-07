@@ -19,19 +19,20 @@ import toast from 'react-hot-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { isStaffRole } from '@/lib/roles';
 import { reportLoadError } from '@/lib/errors';
+import { useModal } from '@/hooks/useModal';
 
 function getStatusBadge(status: string) {
   switch (status) {
     case 'submitted':
       return (
         <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full flex items-center gap-1">
-          <Clock size={12} /> Em analise
+          <Clock size={12} /> Em análise
         </span>
       );
     case 'reviewing':
       return (
         <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full flex items-center gap-1">
-          <Clock size={12} /> Em revisao
+          <Clock size={12} /> Em revisão
         </span>
       );
     case 'allocated':
@@ -65,6 +66,8 @@ export default function GardenOfMemories() {
   const [loading, setLoading] = useState(true);
   const [selectedNotification, setSelectedNotification] = useState<DeathNotification | null>(null);
   const [pendingDelete, setPendingDelete] = useState<DeathNotification | null>(null);
+  const { containerRef: detailModalRef } = useModal(!!selectedNotification, () => setSelectedNotification(null));
+  const { containerRef: deleteDialogRef } = useModal(!!pendingDelete, () => setPendingDelete(null));
 
   useEffect(() => {
     async function fetchData() {
@@ -120,7 +123,7 @@ export default function GardenOfMemories() {
             Jardim de Memorias
           </h1>
           <p className="text-slate-500 mt-2 text-sm">
-            Acompanhe solicitacoes e mantenha viva a historia dos seus entes queridos.
+            Acompanhe solicitações e mantenha viva a história dos seus entes queridos.
           </p>
         </div>
       </div>
@@ -135,12 +138,12 @@ export default function GardenOfMemories() {
             <div className="w-12 h-12 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center">
               <Plus size={24} />
             </div>
-            <h2 className="mt-4 font-semibold text-slate-900">Comunicar obito</h2>
+            <h2 className="mt-4 font-semibold text-slate-900">Comunicar óbito</h2>
             <p className="text-sm text-slate-500 mt-1">
-              Inicie um novo comunicado e adicione uma memoria ao seu jardim.
+              Inicie um novo comunicado e adicione uma memória ao seu jardim.
             </p>
             <div className="mt-4 text-blue-700 text-sm font-medium inline-flex items-center gap-1 group-hover:underline">
-              Ir para formulario <ChevronRight size={14} />
+              Ir para formulário <ChevronRight size={14} />
             </div>
           </Link>
         ))}
@@ -157,9 +160,9 @@ export default function GardenOfMemories() {
           <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-5 text-slate-400">
             <Heart size={30} />
           </div>
-          <h3 className="text-lg font-medium text-slate-900 mb-2">Sem memorias registradas ainda</h3>
+          <h3 className="text-lg font-medium text-slate-900 mb-2">Sem memórias registradas ainda</h3>
           <p className="text-slate-500 max-w-md mx-auto text-sm">
-            Use os cards acima para iniciar o primeiro comunicado de obito.
+            Use os cards acima para iniciar o primeiro comunicado de óbito.
           </p>
         </div>
       ) : (
@@ -224,7 +227,7 @@ export default function GardenOfMemories() {
                   <span className="truncate">
                     {notification.status === 'allocated' && notification.allocation
                       ? `Jazigo ${notification.allocation.plotCode}`
-                      : 'Local em definicao'}
+                      : 'Local em definição'}
                   </span>
                 </div>
                 <p className="text-slate-600 text-sm line-clamp-3 mb-6 italic leading-relaxed">
@@ -250,9 +253,10 @@ export default function GardenOfMemories() {
             onClick={() => setSelectedNotification(null)}
             className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
           />
-          <div className="bg-white w-full max-w-5xl max-h-[90vh] rounded-2xl shadow-2xl overflow-hidden relative z-10 flex flex-col md:flex-row">
+          <div ref={detailModalRef} role="dialog" aria-modal="true" aria-label="Detalhes da memória" className="bg-white w-full max-w-5xl max-h-[90vh] rounded-2xl shadow-2xl overflow-hidden relative z-10 flex flex-col md:flex-row">
             <button
               onClick={() => setSelectedNotification(null)}
+              aria-label="Fechar detalhes"
               className="absolute top-4 right-4 z-20 p-2 bg-black/20 hover:bg-black/40 text-white rounded-full backdrop-blur-md transition-colors md:hidden"
             >
               <X size={20} />
@@ -333,7 +337,7 @@ export default function GardenOfMemories() {
                       Profissao
                     </h4>
                     <p className="text-slate-700 font-medium">
-                      {selectedNotification.deceased.profession || 'Nao informada'}
+                      {selectedNotification.deceased.profession || 'Não informada'}
                     </p>
                   </div>
                 </div>
@@ -341,7 +345,7 @@ export default function GardenOfMemories() {
                 <div className="space-y-8">
                   {selectedNotification.deceased.obituary && (
                     <div>
-                      <h3 className="font-serif text-2xl font-bold text-slate-900 mb-4">Obituario</h3>
+                      <h3 className="font-serif text-2xl font-bold text-slate-900 mb-4">Obituário</h3>
                       <p className="whitespace-pre-line text-slate-600 leading-relaxed text-sm">
                         {selectedNotification.deceased.obituary}
                       </p>
@@ -368,8 +372,8 @@ export default function GardenOfMemories() {
 
       {pendingDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div role="dialog" aria-modal="true" className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
-            <h3 className="text-lg font-bold text-slate-900 mb-2">Excluir registro</h3>
+          <div ref={deleteDialogRef} role="dialog" aria-modal="true" aria-labelledby="delete-memory-title" className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+            <h3 id="delete-memory-title" className="text-lg font-bold text-slate-900 mb-2">Excluir registro</h3>
             <p className="text-sm text-slate-600 mb-6">
               Tem certeza que deseja excluir este registro? Esta ação não pode ser desfeita.
             </p>

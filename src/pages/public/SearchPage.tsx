@@ -58,7 +58,7 @@ export default function SearchPage() {
             Busca de falecidos
           </h1>
           <p className="text-slate-500 mb-8">
-            Pesquise por nome para encontrar informacoes sobre falecidos registrados no sistema.
+            Pesquise por nome para encontrar informações sobre falecidos registrados no sistema.
           </p>
 
           <form onSubmit={handleSearch} className="flex gap-3 max-w-xl mx-auto">
@@ -68,7 +68,7 @@ export default function SearchPage() {
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Digite o nome do falecido (minimo 3 caracteres)"
+                placeholder="Digite o nome do falecido (minimo 3 caracteres)" aria-label="Digite o nome do falecido (minimo 3 caracteres)"
                 className="w-full pl-11 pr-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-slate-800"
               />
             </div>
@@ -111,7 +111,7 @@ export default function SearchPage() {
               </div>
               <h3 className="text-lg font-medium text-slate-700 mb-2">Nenhum resultado encontrado</h3>
               <p className="text-slate-400 text-sm">
-                Nao encontramos registros para "{searchTerm}". Verifique a grafia ou tente outro nome.
+                Não encontramos registros para "{searchTerm}". Verifique a grafia ou tente outro nome.
               </p>
             </div>
           ) : (

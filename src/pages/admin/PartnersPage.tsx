@@ -4,6 +4,7 @@ import { Handshake, Phone, Mail, Plus, Pencil } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { listPartners, createPartner, updatePartner, Partner } from '@/services/sciService';
 import { reportError, reportLoadError } from '@/lib/errors';
+import { useModal } from '@/hooks/useModal';
 
 const TYPE_LABELS: Record<Partner['type'], string> = {
   floricultura: 'Floricultura',
@@ -27,6 +28,7 @@ export default function PartnersPage() {
   const [partners, setPartners] = useState<Partner[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+  const { containerRef: partnerModalRef } = useModal(modalOpen, () => setModalOpen(false));
   const [editing, setEditing] = useState<Partner | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(emptyForm);
@@ -187,8 +189,8 @@ export default function PartnersPage() {
 
       {modalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white p-6 rounded-xl w-full max-w-lg">
-            <h2 className="text-xl font-bold mb-4">{editing ? 'Editar parceiro' : 'Novo parceiro'}</h2>
+          <div ref={partnerModalRef} role="dialog" aria-modal="true" aria-labelledby="partner-modal-title" className="bg-white p-6 rounded-xl w-full max-w-lg">
+            <h2 id="partner-modal-title" className="text-xl font-bold mb-4">{editing ? 'Editar parceiro' : 'Novo parceiro'}</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-1">Nome</label>
@@ -196,7 +198,7 @@ export default function PartnersPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Tipo</label>
-                <select value={form.type} onChange={(e) => setForm((p) => ({ ...p, type: e.target.value as Partner['type'] }))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
+                <select aria-label="Tipo" value={form.type} onChange={(e) => setForm((p) => ({ ...p, type: e.target.value as Partner['type'] }))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
                   {Object.entries(TYPE_LABELS).map(([value, label]) => (
                     <option key={value} value={value}>{label}</option>
                   ))}

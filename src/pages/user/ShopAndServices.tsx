@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { ArrowRight, ShoppingBag, X, Plus, Minus, CreditCard, AlertTriangle } from 'lucide-react';
+import { useModal } from '@/hooks/useModal';
 
 type CatalogCategory = 'all' | 'lojas' | 'servicos' | 'setores';
 
@@ -27,12 +28,12 @@ const catalog: CatalogItem[] = [
     coverUrl:
       'https://images.unsplash.com/photo-1490750967868-88aa4486c946?q=80&w=1200&auto=format&fit=crop',
     shortDescription:
-      'Arranjo floral para homenagens com composicao equilibrada e acabamento profissional.',
-    deliveryInfo: 'Entrega no cemiterio em ate 4 horas apos confirmacao.'
+      'Arranjo floral para homenagens com composição equilibrada e acabamento profissional.',
+    deliveryInfo: 'Entrega no cemitério em até 4 horas após confirmação.'
   },
   {
     id: 'i2',
-    name: 'Buque de Recordacao',
+    name: 'Buque de Recordação',
     price: 140,
     category: 'lojas',
     coverUrl:
@@ -43,24 +44,24 @@ const catalog: CatalogItem[] = [
   },
   {
     id: 'i3',
-    name: 'Limpeza e Conservacao de Jazigo',
+    name: 'Limpeza e Conservação de Jazigo',
     price: 95,
     category: 'servicos',
     coverUrl:
       'https://images.unsplash.com/photo-1603728409365-37a3b0f6f8ba?q=80&w=1200&auto=format&fit=crop',
     shortDescription:
-      'Servico de manutencao com limpeza, polimento e revisao visual do espaco.',
-    deliveryInfo: 'Execucao em janela de 48h com registro fotografico.'
+      'Serviço de manutenção com limpeza, polimento e revisão visual do espaço.',
+    deliveryInfo: 'Execução em janela de 48h com registro fotográfico.'
   },
   {
     id: 'i4',
-    name: 'Cerimonia de Lembranca',
+    name: 'Cerimônia de Lembranca',
     price: 520,
     category: 'servicos',
     coverUrl:
       'https://images.unsplash.com/photo-1511988617509-a57c8a288659?q=80&w=1200&auto=format&fit=crop',
     shortDescription:
-      'Apoio para cerimonia de recordacao com organizacao de roteiro e equipe de apoio.',
+      'Apoio para cerimônia de recordação com organização de roteiro e equipe de apoio.',
     deliveryInfo: 'Agendamento sob demanda, conforme disponibilidade.'
   },
   {
@@ -72,7 +73,7 @@ const catalog: CatalogItem[] = [
       'https://images.unsplash.com/photo-1470259078422-826894b933aa?q=80&w=1200&auto=format&fit=crop',
     shortDescription:
       'Homenagem digital vinculada ao memorial, visivel para familiares convidados.',
-    deliveryInfo: 'Ativacao imediata apos pagamento.'
+    deliveryInfo: 'Ativação imediata após pagamento.'
   },
   {
     id: 'i6',
@@ -83,26 +84,26 @@ const catalog: CatalogItem[] = [
       'https://images.unsplash.com/photo-1516570161787-2fd917215a3d?q=80&w=1200&auto=format&fit=crop',
     shortDescription:
       'Placa comemorativa com texto personalizado para memorial e lembranca familiar.',
-    deliveryInfo: 'Producao e entrega em ate 10 dias uteis.'
+    deliveryInfo: 'Produção e entrega em até 10 dias úteis.'
   }
 ];
 
 const categoryMeta = {
   all: {
     title: 'Todos os itens',
-    description: 'Visao completa de produtos e servicos disponiveis no MemorialOS.'
+    description: 'Visão completa de produtos e serviços disponíveis no MemorialOS.'
   },
   lojas: {
     title: 'Lojas',
-    description: 'Produtos fisicos para homenagens e cuidado do espaco memorial.'
+    description: 'Produtos fisicos para homenagens e cuidado do espaço memorial.'
   },
   servicos: {
-    title: 'Servicos',
+    title: 'Serviços',
     description: 'Atendimentos executados por equipe especializada com agendamento.'
   },
   setores: {
     title: 'Outros setores',
-    description: 'Solucoes digitais e complementares para memoria e acompanhamento.'
+    description: 'Soluções digitais e complementares para memória e acompanhamento.'
   }
 };
 
@@ -113,6 +114,8 @@ export default function ShopAndServices() {
   const [category, setCategory] = useState<CatalogCategory>('all');
   const [cartOpen, setCartOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const { containerRef: cartDrawerRef } = useModal(cartOpen, () => setCartOpen(false));
+  const { containerRef: checkoutModalRef } = useModal(checkoutOpen, () => setCheckoutOpen(false));
   const [cart, setCart] = useState<CartItem[]>([]);
 
   const filtered = useMemo(
@@ -170,9 +173,9 @@ export default function ShopAndServices() {
 
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-serif font-bold text-blue-900">Loja e Servicos</h1>
+          <h1 className="text-3xl font-serif font-bold text-blue-900">Loja e Serviços</h1>
           <p className="text-slate-500 mt-2 max-w-3xl">
-            Esta pagina organiza produtos e servicos de apoio em um unico fluxo. Voce pode
+            Esta página organiza produtos e serviços de apoio em um único fluxo. Você pode
             entender cada oferta, adicionar ao carrinho e seguir para o pagamento sem sair do
             aplicativo.
           </p>
@@ -204,7 +207,7 @@ export default function ShopAndServices() {
                   : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
               }`}
             >
-              {option === 'all' ? 'Todos' : option === 'lojas' ? 'Lojas' : option === 'servicos' ? 'Servicos' : 'Outros setores'}
+              {option === 'all' ? 'Todos' : option === 'lojas' ? 'Lojas' : option === 'servicos' ? 'Serviços' : 'Outros setores'}
             </button>
           ))}
         </div>
@@ -224,7 +227,7 @@ export default function ShopAndServices() {
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/35 to-transparent" />
               <span className="absolute bottom-3 left-3 bg-white/90 backdrop-blur px-2.5 py-1 rounded-full text-xs font-medium text-slate-700 capitalize">
-                {item.category === 'lojas' ? 'Loja' : item.category === 'servicos' ? 'Servico' : 'Outros'}
+                {item.category === 'lojas' ? 'Loja' : item.category === 'servicos' ? 'Serviço' : 'Outros'}
               </span>
             </div>
             <div className="p-5">
@@ -250,17 +253,17 @@ export default function ShopAndServices() {
       {cartOpen && (
         <div className="fixed inset-0 z-50">
           <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setCartOpen(false)} />
-          <div className="absolute top-0 right-0 h-full w-full max-w-md bg-white shadow-2xl border-l border-slate-200 flex flex-col">
+          <div ref={cartDrawerRef} role="dialog" aria-modal="true" aria-labelledby="cart-drawer-title" className="absolute top-0 right-0 h-full w-full max-w-md bg-white shadow-2xl border-l border-slate-200 flex flex-col">
             <div className="p-4 border-b border-slate-200 flex items-center justify-between">
-              <h3 className="font-semibold text-slate-900">Carrinho</h3>
-              <button onClick={() => setCartOpen(false)} className="p-1 rounded hover:bg-slate-100">
+              <h3 id="cart-drawer-title" className="font-semibold text-slate-900">Carrinho</h3>
+              <button onClick={() => setCartOpen(false)} aria-label="Fechar carrinho" className="p-1 rounded hover:bg-slate-100">
                 <X size={18} />
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {cart.length === 0 && (
                 <div className="text-sm text-slate-500 text-center py-12 border border-dashed border-slate-300 rounded-xl">
-                  Seu carrinho esta vazio.
+                  Seu carrinho está vazio.
                 </div>
               )}
               {cart.map((cartItem) => (
@@ -276,11 +279,11 @@ export default function ShopAndServices() {
                   </div>
                   <div className="mt-3 flex items-center justify-between">
                     <div className="inline-flex items-center border border-slate-300 rounded-lg overflow-hidden">
-                      <button onClick={() => changeQuantity(cartItem.item.id, -1)} className="px-2 py-1 hover:bg-slate-100">
+                      <button onClick={() => changeQuantity(cartItem.item.id, -1)} aria-label="Diminuir quantidade" className="px-2 py-1 hover:bg-slate-100">
                         <Minus size={14} />
                       </button>
                       <span className="px-3 text-sm">{cartItem.quantity}</span>
-                      <button onClick={() => changeQuantity(cartItem.item.id, 1)} className="px-2 py-1 hover:bg-slate-100">
+                      <button onClick={() => changeQuantity(cartItem.item.id, 1)} aria-label="Aumentar quantidade" className="px-2 py-1 hover:bg-slate-100">
                         <Plus size={14} />
                       </button>
                     </div>
@@ -311,18 +314,18 @@ export default function ShopAndServices() {
       {checkoutOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/45 backdrop-blur-sm" onClick={() => setCheckoutOpen(false)} />
-          <div className="relative w-full max-w-xl bg-white rounded-2xl border border-slate-200 shadow-2xl p-6">
-            <h3 className="text-xl font-semibold text-slate-900">Pagamento</h3>
+          <div ref={checkoutModalRef} role="dialog" aria-modal="true" aria-labelledby="checkout-modal-title" className="relative w-full max-w-xl bg-white rounded-2xl border border-slate-200 shadow-2xl p-6">
+            <h3 id="checkout-modal-title" className="text-xl font-semibold text-slate-900">Pagamento</h3>
             <p className="text-sm text-slate-500 mt-1">
-              Finalize os dados para concluir seu pedido de produtos e servicos.
+              Finalize os dados para concluir seu pedido de produtos e serviços.
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-5">
-              <input className="border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Nome completo" />
-              <input className="border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Email" />
-              <input className="border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Telefone" />
-              <select className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
+              <input className="border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Nome completo" aria-label="Nome completo" />
+              <input className="border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Email" aria-label="Email" />
+              <input className="border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Telefone" aria-label="Telefone" />
+              <select aria-label="Forma de pagamento" className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
                 <option>Pix</option>
-                <option>Cartao de credito</option>
+                <option>Cartão de crédito</option>
                 <option>Boleto</option>
               </select>
             </div>
@@ -336,7 +339,7 @@ export default function ShopAndServices() {
               </button>
               <button
                 disabled
-                title="Pedidos ainda não disponíveis nesta versão"
+                title="Pedidos ainda não disponíveis nesta versão" aria-label="Pedidos ainda não disponíveis nesta versão"
                 className="px-4 py-2 bg-slate-300 text-slate-500 rounded-lg cursor-not-allowed"
               >
                 Finalizar pedido (em breve)

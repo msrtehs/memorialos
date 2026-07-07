@@ -10,11 +10,12 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import MapPicker from '@/components/MapPicker';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { useModal } from '@/hooks/useModal';
 import { StatCardSkeleton } from '@/components/ui/StatCardSkeleton';
 
 const schema = z.object({
   name: z.string().min(3, 'Nome obrigatorio'),
-  address: z.string().min(5, 'Endereco obrigatorio'),
+  address: z.string().min(5, 'Endereço obrigatorio'),
   capacity: z.string().optional(),
   type: z.enum(['publico', 'particular', 'concessao']),
   adminUid: z.string().optional(),
@@ -23,9 +24,9 @@ const schema = z.object({
 type CemeteryForm = z.infer<typeof schema>;
 
 const TYPE_LABELS: Record<string, string> = {
-  publico: 'Publico',
+  publico: 'Público',
   particular: 'Particular',
-  concessao: 'Concessao',
+  concessão: 'Concessão',
 };
 
 export default function CemeteryList() {
@@ -34,6 +35,7 @@ export default function CemeteryList() {
   const [cemeteries, setCemeteries] = useState<Cemetery[]>([]);
   const [profiles, setProfiles] = useState<Array<{ id: string; email: string }>>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const { containerRef: cemeteryModalRef } = useModal(isModalOpen, () => setIsModalOpen(false));
   const [editingCemetery, setEditingCemetery] = useState<Cemetery | null>(null);
   const [mapCoords, setMapCoords] = useState<{ lat: number; lng: number }>({ lat: 0, lng: 0 });
   const [pendingDelete, setPendingDelete] = useState<Cemetery | null>(null);
@@ -153,14 +155,14 @@ export default function CemeteryList() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Cemiterios</h1>
-          <p className="text-slate-500">Gestao da estrutura fisica e georreferenciamento das unidades.</p>
+          <h1 className="text-2xl font-bold text-slate-900">Cemitérios</h1>
+          <p className="text-slate-500">Gestão da estrutura fisica e georreferenciamento das unidades.</p>
         </div>
         <button
           onClick={openCreateModal}
           className="bg-slate-900 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-slate-800 transition-colors"
         >
-          <Plus size={18} /> Novo cemiterio
+          <Plus size={18} /> Novo cemitério
         </button>
       </div>
 
@@ -189,14 +191,14 @@ export default function CemeteryList() {
               <button
                 onClick={() => openEditModal(cemetery)}
                 className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-full transition-colors"
-                title="Editar cemiterio"
+                title="Editar cemitério" aria-label="Editar cemitério"
               >
                 <Pencil size={18} />
               </button>
               <button
                 onClick={(e) => { e.preventDefault(); setPendingDelete(cemetery); }}
                 className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
-                title="Excluir cemiterio"
+                title="Excluir cemitério"
                 aria-label={`Excluir cemitério ${cemetery.name}`}
               >
                 <Trash2 size={18} />
@@ -235,7 +237,7 @@ export default function CemeteryList() {
             <div className="flex items-center gap-4 text-sm text-slate-600 border-t border-slate-50 pt-4 mt-3">
               <div className="flex items-center gap-1">
                 <Layers size={16} />
-                <span>Gestao de setores</span>
+                <span>Gestão de setores</span>
               </div>
             </div>
 
@@ -252,8 +254,8 @@ export default function CemeteryList() {
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white p-6 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-bold mb-4">{editingCemetery ? 'Editar cemiterio' : 'Novo cemiterio'}</h2>
+          <div ref={cemeteryModalRef} role="dialog" aria-modal="true" aria-labelledby="cemetery-modal-title" className="bg-white p-6 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <h2 id="cemetery-modal-title" className="text-xl font-bold mb-4">{editingCemetery ? 'Editar cemitério' : 'Novo cemitério'}</h2>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
@@ -262,16 +264,16 @@ export default function CemeteryList() {
                   {errors.name && <p className="text-red-500 text-xs">{errors.name.message}</p>}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Tipo de cemiterio</label>
-                  <select {...register('type')} className="w-full border p-2 rounded bg-white">
-                    <option value="publico">Publico</option>
+                  <label className="block text-sm font-medium mb-1">Tipo de cemitério</label>
+                  <select aria-label="Tipo" {...register('type')} className="w-full border p-2 rounded bg-white">
+                    <option value="publico">Público</option>
                     <option value="particular">Particular</option>
-                    <option value="concessao">Concessao</option>
+                    <option value="concessao">Concessão</option>
                   </select>
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Endereco</label>
+                <label className="block text-sm font-medium mb-1">Endereço</label>
                 <input {...register('address')} className="w-full border p-2 rounded" />
                 {errors.address && <p className="text-red-500 text-xs">{errors.address.message}</p>}
               </div>
@@ -281,8 +283,8 @@ export default function CemeteryList() {
                   <input type="number" {...register('capacity')} className="w-full border p-2 rounded" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Administrador responsavel</label>
-                  <select {...register('adminUid')} className="w-full border p-2 rounded bg-white">
+                  <label className="block text-sm font-medium mb-1">Administrador responsável</label>
+                  <select aria-label="Administrador responsável" {...register('adminUid')} className="w-full border p-2 rounded bg-white">
                     <option value="">Nenhum</option>
                     {profiles.map((p) => (
                       <option key={p.id} value={p.id}>{p.email}</option>
@@ -292,7 +294,7 @@ export default function CemeteryList() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Localizacao no mapa (clique para selecionar)</label>
+                <label className="block text-sm font-medium mb-2">Localização no mapa (clique para selecionar)</label>
                 <MapPicker
                   lat={mapCoords.lat}
                   lng={mapCoords.lng}

@@ -20,7 +20,7 @@ const step1Schema = z.object({
   hobbies: z.string().optional(),
   familyMembers: z.string().optional(),
   achievements: z.string().optional(),
-  relationshipType: z.string().min(1, 'Selecione o nivel de proximidade'),
+  relationshipType: z.string().min(1, 'Selecione o nível de proximidade'),
   relationshipCustom: z.string().optional()
 });
 
@@ -219,9 +219,9 @@ export default function ReportDeath() {
   return (
     <div className="max-w-3xl mx-auto">
       <div className="mb-8 text-center">
-        <h1 className="text-3xl font-serif font-bold text-blue-900">Comunicar Obito</h1>
+        <h1 className="text-3xl font-serif font-bold text-blue-900">Comunicar Óbito</h1>
         <p className="text-slate-500 mt-2">
-          Preencha as informacoes com cuidado para facilitar atendimento e homenagem.
+          Preencha as informações com cuidado para facilitar atendimento e homenagem.
         </p>
       </div>
 
@@ -253,14 +253,15 @@ export default function ReportDeath() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Cemiterio de preferencia</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Cemitério de preferência</label>
                 <select
+                  aria-label="Cemitério de preferência"
                   className="w-full px-4 py-3 border border-slate-300 rounded-lg bg-white"
                   value={selectedCemeteryId}
                   onChange={(e) => setSelectedCemeteryId(e.target.value)}
                   required
                 >
-                  <option value="">Selecione um cemiterio...</option>
+                  <option value="">Selecione um cemitério...</option>
                   {cemeteries.map((cemetery) => (
                     <option key={cemetery.id} value={cemetery.id}>
                       {cemetery.name}
@@ -285,8 +286,8 @@ export default function ReportDeath() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Nivel de proximidade</label>
-                <select
+                <label className="block text-sm font-medium text-slate-700 mb-1">Nível de proximidade</label>
+                <select aria-label="Nível de proximidade"
                   {...form1.register('relationshipType')}
                   className="w-full px-4 py-3 border border-slate-300 rounded-lg bg-white"
                 >
@@ -369,7 +370,7 @@ export default function ReportDeath() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Familia</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Família</label>
               <textarea
                 {...form1.register('familyMembers')}
                 className="w-full px-4 py-3 border border-slate-300 rounded-lg h-24"
@@ -378,11 +379,11 @@ export default function ReportDeath() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Realizacoes importantes</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Realizações importantes</label>
               <textarea
                 {...form1.register('achievements')}
                 className="w-full px-4 py-3 border border-slate-300 rounded-lg h-24"
-                placeholder="Ex: Fundou uma escola comunitaria."
+                placeholder="Ex: Fundou uma escola comunitária."
               />
             </div>
 
@@ -401,7 +402,7 @@ export default function ReportDeath() {
 
             <div className="flex justify-end pt-2">
               <button type="submit" className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-medium hover:bg-blue-700 inline-flex items-center gap-2">
-                Proximo <ChevronRight size={18} />
+                Próximo <ChevronRight size={18} />
               </button>
             </div>
           </form>
@@ -409,9 +410,9 @@ export default function ReportDeath() {
 
         {step === 2 && (
           <div className="space-y-6">
-            <h2 className="text-xl font-bold text-blue-900">Obituario</h2>
+            <h2 className="text-xl font-bold text-blue-900">Obituário</h2>
             <p className="text-slate-600">
-              Escreva a homenagem manualmente ou gere um rascunho com IA. O nivel de proximidade informado sera considerado no tom da mensagem.
+              Escreva a homenagem manualmente ou gere um rascunho com IA. O nível de proximidade informado será considerado no tom da mensagem.
             </p>
 
             <button
@@ -427,7 +428,7 @@ export default function ReportDeath() {
               value={obituaryText}
               onChange={(e) => setObituaryText(e.target.value)}
               className="w-full h-64 p-4 border border-slate-300 rounded-xl text-slate-700 leading-relaxed"
-              placeholder="Escreva aqui o obituario..."
+              placeholder="Escreva aqui o obituário..." aria-label="Escreva aqui o obituário..."
             />
 
             <div className="flex justify-between">
@@ -435,7 +436,7 @@ export default function ReportDeath() {
                 <ChevronLeft size={18} /> Voltar
               </button>
               <button onClick={() => handleNext({})} className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-medium hover:bg-blue-700 inline-flex items-center gap-2">
-                Proximo <ChevronRight size={18} />
+                Próximo <ChevronRight size={18} />
               </button>
             </div>
           </div>
@@ -443,7 +444,7 @@ export default function ReportDeath() {
 
         {step === 3 && (
           <form onSubmit={form3.handleSubmit(handleNext)} className="space-y-6">
-            <h2 className="text-xl font-bold text-blue-900">Frase da lapide</h2>
+            <h2 className="text-xl font-bold text-blue-900">Frase da lápide</h2>
             <p className="text-slate-600">Uma frase breve para permanecer no memorial.</p>
 
             <div>
@@ -451,7 +452,7 @@ export default function ReportDeath() {
               <input
                 {...form3.register('epitaph')}
                 className="w-full px-4 py-3 border border-slate-300 rounded-lg text-center text-lg font-serif italic"
-                placeholder="Ex: Saudade eterna e gratidao infinita."
+                placeholder="Ex: Saudade eterna e gratidão infinita."
               />
               {form3.formState.errors.epitaph && (
                 <p className="text-red-500 text-xs mt-1">
@@ -465,7 +466,7 @@ export default function ReportDeath() {
                 <ChevronLeft size={18} /> Voltar
               </button>
               <button type="submit" className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-medium hover:bg-blue-700 inline-flex items-center gap-2">
-                Proximo <ChevronRight size={18} />
+                Próximo <ChevronRight size={18} />
               </button>
             </div>
           </form>
@@ -473,7 +474,7 @@ export default function ReportDeath() {
 
         {step === 4 && (
           <div className="space-y-6">
-            <h2 className="text-xl font-bold text-blue-900">Revisao final</h2>
+            <h2 className="text-xl font-bold text-blue-900">Revisão final</h2>
             <p className="text-slate-600">Confira os dados antes de finalizar.</p>
 
             <div className="bg-blue-50 rounded-xl p-6 space-y-4 text-sm text-slate-700">
@@ -500,12 +501,12 @@ export default function ReportDeath() {
                 </div>
               </div>
               <div className="pt-4 border-t border-blue-100">
-                <span className="font-bold block text-blue-800 mb-1">Obituario</span>
+                <span className="font-bold block text-blue-800 mb-1">Obituário</span>
                 <p className="line-clamp-3 italic opacity-80">{obituaryText}</p>
               </div>
               <div className="pt-4 border-t border-blue-100">
                 <p className="text-xs text-slate-500 italic">
-                  O local de sepultamento sera definido pelo gestor apos a analise da documentacao.
+                  O local de sepultamento será definido pelo gestor após a análise da documentação.
                 </p>
               </div>
             </div>

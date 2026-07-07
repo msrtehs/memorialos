@@ -11,6 +11,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { reportError, reportLoadError } from '@/lib/errors';
+import { useModal } from '@/hooks/useModal';
 
 // --- Sector Form Modal ---
 function SectorModal({ sector, saving, onSave, onClose }: {
@@ -31,11 +32,12 @@ function SectorModal({ sector, saving, onSave, onClose }: {
     plotType: 'Jazigo',
     generatePlots: !isEdit,
   });
+  const { containerRef } = useModal(true, onClose);
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white p-6 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <h2 className="text-xl font-bold mb-4">{isEdit ? 'Editar setor' : 'Novo setor'}</h2>
+      <div ref={containerRef} role="dialog" aria-modal="true" aria-labelledby="sector-modal-title" className="bg-white p-6 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <h2 id="sector-modal-title" className="text-xl font-bold mb-4">{isEdit ? 'Editar setor' : 'Novo setor'}</h2>
         <form onSubmit={(e) => { e.preventDefault(); onSave(form); }} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -44,10 +46,10 @@ function SectorModal({ sector, saving, onSave, onClose }: {
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Tipo</label>
-              <select value={form.type} onChange={(e) => setForm((p) => ({ ...p, type: e.target.value }))} className="w-full border border-slate-300 p-2 rounded bg-white">
-                <option value="ground">Terreo</option>
+              <select aria-label="Tipo" value={form.type} onChange={(e) => setForm((p) => ({ ...p, type: e.target.value }))} className="w-full border border-slate-300 p-2 rounded bg-white">
+                <option value="ground">Térreo</option>
                 <option value="vertical">Vertical</option>
-                <option value="ossuary">Ossuario</option>
+                <option value="ossuary">Ossuário</option>
               </select>
             </div>
           </div>
@@ -60,10 +62,10 @@ function SectorModal({ sector, saving, onSave, onClose }: {
             {!isEdit && (
               <div>
                 <label className="block text-sm font-medium mb-1">Tipo de jazigo gerado</label>
-                <select value={form.plotType} onChange={(e) => setForm((p) => ({ ...p, plotType: e.target.value }))} className="w-full border border-slate-300 p-2 rounded bg-white">
+                <select aria-label="Tipo de jazigo" value={form.plotType} onChange={(e) => setForm((p) => ({ ...p, plotType: e.target.value }))} className="w-full border border-slate-300 p-2 rounded bg-white">
                   <option value="Jazigo">Jazigo</option>
                   <option value="Mausoleu">Mausoleu</option>
-                  <option value="Ossuario">Ossuario</option>
+                  <option value="Ossuario">Ossuário</option>
                 </select>
               </div>
             )}
@@ -72,11 +74,11 @@ function SectorModal({ sector, saving, onSave, onClose }: {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">Latitude centro</label>
-              <input value={form.centerLat} onChange={(e) => setForm((p) => ({ ...p, centerLat: e.target.value }))} className="w-full border border-slate-300 p-2 rounded" placeholder="-23.550520" />
+              <input value={form.centerLat} onChange={(e) => setForm((p) => ({ ...p, centerLat: e.target.value }))} className="w-full border border-slate-300 p-2 rounded" placeholder="-23.550520" aria-label="Latitude" />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Longitude centro</label>
-              <input value={form.centerLng} onChange={(e) => setForm((p) => ({ ...p, centerLng: e.target.value }))} className="w-full border border-slate-300 p-2 rounded" placeholder="-46.633308" />
+              <input value={form.centerLng} onChange={(e) => setForm((p) => ({ ...p, centerLng: e.target.value }))} className="w-full border border-slate-300 p-2 rounded" placeholder="-46.633308" aria-label="Longitude" />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Linhas da grade</label>
@@ -126,31 +128,32 @@ function PlotModal({ plot, sectorId, cemeteryId, saving, onSave, onClose }: {
     exhumationDeadlineYears: plot?.exhumationDeadlineYears || 3,
     notes: (plot as any)?.notes || '',
   });
+  const { containerRef } = useModal(true, onClose);
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white p-6 rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <h2 className="text-xl font-bold mb-4">{isEdit ? 'Editar tumulo' : 'Novo tumulo'}</h2>
+      <div ref={containerRef} role="dialog" aria-modal="true" aria-labelledby="plot-modal-title" className="bg-white p-6 rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <h2 id="plot-modal-title" className="text-xl font-bold mb-4">{isEdit ? 'Editar túmulo' : 'Novo túmulo'}</h2>
         <form onSubmit={(e) => { e.preventDefault(); onSave(form); }} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1">Numero do tumulo</label>
+              <label className="block text-sm font-medium mb-1">Número do túmulo</label>
               <input value={form.code} onChange={(e) => setForm((p) => ({ ...p, code: e.target.value }))} className="w-full border p-2 rounded" required />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Tipo</label>
-              <select value={form.type} onChange={(e) => setForm((p) => ({ ...p, type: e.target.value as any }))} className="w-full border p-2 rounded bg-white">
+              <select aria-label="Tipo" value={form.type} onChange={(e) => setForm((p) => ({ ...p, type: e.target.value as any }))} className="w-full border p-2 rounded bg-white">
                 <option value="Jazigo">Jazigo</option>
                 <option value="Mausoleu">Mausoleu</option>
-                <option value="Ossuario">Ossuario</option>
+                <option value="Ossuario">Ossuário</option>
               </select>
             </div>
           </div>
 
           <div>
             <label className="block text-sm font-medium mb-1">Status</label>
-            <select value={form.status} onChange={(e) => setForm((p) => ({ ...p, status: e.target.value as any }))} className="w-full border p-2 rounded bg-white">
-              <option value="available">Disponivel</option>
+            <select aria-label="Status" value={form.status} onChange={(e) => setForm((p) => ({ ...p, status: e.target.value as any }))} className="w-full border p-2 rounded bg-white">
+              <option value="available">Disponível</option>
               <option value="occupied">Ocupado</option>
               <option value="reserved">Reservado</option>
               <option value="blocked">Bloqueado</option>
@@ -168,13 +171,13 @@ function PlotModal({ plot, sectorId, cemeteryId, saving, onSave, onClose }: {
               <input type="date" value={form.burialDate} onChange={(e) => setForm((p) => ({ ...p, burialDate: e.target.value }))} className="w-full border p-2 rounded" />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Exumacao (anos)</label>
+              <label className="block text-sm font-medium mb-1">Exumação (anos)</label>
               <input type="number" value={form.exhumationDeadlineYears} onChange={(e) => setForm((p) => ({ ...p, exhumationDeadlineYears: Number(e.target.value) }))} className="w-full border p-2 rounded" />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Observacoes</label>
+            <label className="block text-sm font-medium mb-1">Observações</label>
             <textarea value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} className="w-full border p-2 rounded" rows={3} />
           </div>
 
@@ -198,7 +201,7 @@ const STATUS_COLORS: Record<string, string> = {
   blocked: 'bg-slate-200 text-slate-600',
 };
 const STATUS_LABELS: Record<string, string> = {
-  available: 'Disponivel',
+  available: 'Disponível',
   occupied: 'Ocupado',
   reserved: 'Reservado',
   blocked: 'Bloqueado',
@@ -384,8 +387,8 @@ export default function CemeteryDetail() {
           <ArrowLeft size={20} />
         </Link>
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Estrutura do cemiterio</h1>
-          <p className="text-slate-500">Gerencie quadras, tumulos e georreferenciamento.</p>
+          <h1 className="text-2xl font-bold text-slate-900">Estrutura do cemitério</h1>
+          <p className="text-slate-500">Gerencie quadras, túmulos e georreferenciamento.</p>
         </div>
       </div>
 
@@ -402,7 +405,7 @@ export default function CemeteryDetail() {
       <div className="space-y-4">
         {sectors.length === 0 ? (
           <div className="text-center py-12 text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-300">
-            Nenhum setor cadastrado neste cemiterio.
+            Nenhum setor cadastrado neste cemitério.
           </div>
         ) : (
           sectors.map((sector) => {
@@ -426,10 +429,10 @@ export default function CemeteryDetail() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <button onClick={() => toggleSectorPlots(sector.id!)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full" title="Ver tumulos">
+                      <button onClick={() => toggleSectorPlots(sector.id!)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full" title="Ver túmulos" aria-label="Ver túmulos">
                         <Eye size={18} />
                       </button>
-                      <button onClick={() => setSectorModal({ open: true, sector })} className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-full" title="Editar setor">
+                      <button onClick={() => setSectorModal({ open: true, sector })} className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-full" title="Editar setor" aria-label="Editar setor">
                         <Pencil size={18} />
                       </button>
                       <button onClick={() => setPendingSectorDelete(sector)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full" title="Excluir setor" aria-label={`Excluir setor ${sector.name}`}>
@@ -449,30 +452,30 @@ export default function CemeteryDetail() {
                 {isExpanded && (
                   <div className="border-t border-slate-200 p-5 bg-slate-50/50">
                     <div className="flex justify-between items-center mb-4">
-                      <h4 className="text-sm font-bold text-slate-700">Tumulos da quadra: {sector.name}</h4>
+                      <h4 className="text-sm font-bold text-slate-700">Túmulos da quadra: {sector.name}</h4>
                       <button
                         onClick={() => setPlotModal({ open: true, plot: null, sectorId: sector.id! })}
                         className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg flex items-center gap-1 text-xs hover:bg-indigo-700"
                       >
-                        <Plus size={14} /> Novo tumulo
+                        <Plus size={14} /> Novo túmulo
                       </button>
                     </div>
 
                     {loadingPlots ? (
                       <p className="text-sm text-slate-400">Carregando...</p>
                     ) : sectorPlots.length === 0 ? (
-                      <p className="text-sm text-slate-400">Nenhum tumulo cadastrado nesta quadra.</p>
+                      <p className="text-sm text-slate-400">Nenhum túmulo cadastrado nesta quadra.</p>
                     ) : (
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                           <thead>
                             <tr className="text-left text-slate-500 border-b border-slate-200">
-                              <th className="pb-2 pr-4">Numero</th>
+                              <th className="pb-2 pr-4">Número</th>
                               <th className="pb-2 pr-4">Tipo</th>
                               <th className="pb-2 pr-4">Status</th>
                               <th className="pb-2 pr-4">Falecido</th>
                               <th className="pb-2 pr-4">Data enterro</th>
-                              <th className="pb-2">Acoes</th>
+                              <th className="pb-2">Ações</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -489,7 +492,7 @@ export default function CemeteryDetail() {
                                 <td className="py-2 pr-4 text-slate-600">{plot.burialDate || '-'}</td>
                                 <td className="py-2">
                                   <div className="flex gap-1">
-                                    <button onClick={() => setPlotModal({ open: true, plot, sectorId: sector.id! })} className="p-1 text-slate-400 hover:text-blue-500" title="Editar">
+                                    <button onClick={() => setPlotModal({ open: true, plot, sectorId: sector.id! })} className="p-1 text-slate-400 hover:text-blue-500" title="Editar" aria-label="Editar">
                                       <Pencil size={16} />
                                     </button>
                                     <button onClick={() => setPendingPlotDelete(plot)} className="p-1 text-slate-400 hover:text-red-500" title="Excluir" aria-label={`Excluir túmulo ${plot.code}`}>
