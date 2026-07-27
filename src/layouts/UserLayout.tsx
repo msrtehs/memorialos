@@ -44,9 +44,9 @@ export default function UserLayout() {
   const handleLogout = () => auth.signOut();
 
   const navItems = [
-    { path: '/app/inicio', label: 'Inicio', icon: House },
+    { path: '/app/inicio', label: 'Início', icon: House },
     { path: '/app/comunicar-obito', label: 'Comunicar Óbito', icon: PenTool },
-    { path: '/app/memorias', label: 'Jardim de Memorias', icon: Flower },
+    { path: '/app/memorias', label: 'Jardim de Memórias', icon: Flower },
     { path: '/app/assistente', label: 'Assistente Virtual', icon: MessageCircleHeart },
     { path: '/app/loja', label: 'Loja e Serviços', icon: ShoppingBag },
     { path: '/app/perfil', label: 'Meu Perfil', icon: UserCircle2 }

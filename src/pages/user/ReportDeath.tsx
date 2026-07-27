@@ -11,11 +11,11 @@ import { validateFile, ALLOWED_IMAGE_TYPES } from '@/lib/fileValidation';
 import { useNavigate } from 'react-router-dom';
 
 const step1Schema = z.object({
-  name: z.string().min(3, 'Nome obrigatorio'),
-  dateOfBirth: z.string().min(1, 'Data de nascimento obrigatoria'),
-  dateOfDeath: z.string().min(1, 'Data de falecimento obrigatoria'),
-  city: z.string().min(2, 'Cidade obrigatoria'),
-  state: z.string().min(2, 'Estado obrigatorio'),
+  name: z.string().min(3, 'Nome obrigatório'),
+  dateOfBirth: z.string().min(1, 'Data de nascimento obrigatória'),
+  dateOfDeath: z.string().min(1, 'Data de falecimento obrigatória'),
+  city: z.string().min(2, 'Cidade obrigatória'),
+  state: z.string().min(2, 'Estado obrigatório'),
   profession: z.string().optional(),
   hobbies: z.string().optional(),
   familyMembers: z.string().optional(),
@@ -25,7 +25,7 @@ const step1Schema = z.object({
 });
 
 const step3Schema = z.object({
-  epitaph: z.string().max(100, 'Maximo de 100 caracteres').optional()
+  epitaph: z.string().max(100, 'Máximo de 100 caracteres').optional()
 });
 
 const relationshipOptions = [
@@ -50,18 +50,37 @@ const relationshipLabelMap: Record<string, string> = {
   filho: 'Filho amado',
   filha: 'Filha querida',
   pai: 'Grande pai',
-  mae: 'Grande mae',
-  irmao: 'Irmao inesquecivel',
-  irma: 'Irma inesquecivel',
-  avo: 'Avo querido',
-  avozinho: 'Avo querido',
-  avoa: 'Avo querida',
+  mae: 'Grande mãe',
+  irmao: 'Irmão inesquecível',
+  irma: 'Irmã inesquecível',
+  avo: 'Avô querido',
+  avozinho: 'Avô querido',
+  avoa: 'Avó querida',
   primo: 'Primo querido',
   prima: 'Prima querida',
   amigo: 'Grande amigo',
   amiga: 'Grande amiga',
   esposo: 'Companheiro eterno',
   esposa: 'Companheira eterna'
+};
+
+// Nome exibido no select de parentesco (o value persiste sem acento por compatibilidade).
+const relationshipDisplayMap: Record<string, string> = {
+  filho: 'Filho',
+  filha: 'Filha',
+  pai: 'Pai',
+  mae: 'Mãe',
+  irmao: 'Irmão',
+  irma: 'Irmã',
+  avo: 'Avô',
+  avoa: 'Avó',
+  primo: 'Primo',
+  prima: 'Prima',
+  amigo: 'Amigo',
+  amiga: 'Amiga',
+  esposo: 'Esposo',
+  esposa: 'Esposa',
+  outro: 'Outro'
 };
 
 const StepIndicator = ({ currentStep, totalSteps }: { currentStep: number; totalSteps: number }) => (
@@ -294,7 +313,7 @@ export default function ReportDeath() {
                   <option value="">Selecione...</option>
                   {relationshipOptions.map((item) => (
                     <option key={item} value={item}>
-                      {item}
+                      {relationshipDisplayMap[item] || item}
                     </option>
                   ))}
                 </select>
@@ -305,7 +324,7 @@ export default function ReportDeath() {
                 )}
                 {relationshipPreview && (
                   <p className="text-xs text-blue-700 mt-2">
-                    Subtitulo sugerido no Jardim de Memorias: <strong>{relationshipPreview}</strong>
+                    Subtítulo sugerido no Jardim de Memórias: <strong>{relationshipPreview}</strong>
                   </p>
                 )}
               </div>
@@ -352,7 +371,7 @@ export default function ReportDeath() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Profissao</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Profissão</label>
               <input
                 {...form1.register('profession')}
                 className="w-full px-4 py-3 border border-slate-300 rounded-lg"
@@ -361,11 +380,11 @@ export default function ReportDeath() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Hobbies e paixoes</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Hobbies e paixões</label>
               <textarea
                 {...form1.register('hobbies')}
                 className="w-full px-4 py-3 border border-slate-300 rounded-lg h-24"
-                placeholder="Ex: Jardinagem, leitura e musica."
+                placeholder="Ex: Jardinagem, leitura e música."
               />
             </div>
 
@@ -374,7 +393,7 @@ export default function ReportDeath() {
               <textarea
                 {...form1.register('familyMembers')}
                 className="w-full px-4 py-3 border border-slate-300 rounded-lg h-24"
-                placeholder="Ex: Esposa Maria, filhos Joao e Ana."
+                placeholder="Ex: Esposa Maria, filhos João e Ana."
               />
             </div>
 
@@ -448,7 +467,7 @@ export default function ReportDeath() {
             <p className="text-slate-600">Uma frase breve para permanecer no memorial.</p>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Frase (max 100 caracteres)</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Frase (máx. 100 caracteres)</label>
               <input
                 {...form3.register('epitaph')}
                 className="w-full px-4 py-3 border border-slate-300 rounded-lg text-center text-lg font-serif italic"

@@ -11,8 +11,8 @@ import AppLogo from '@/components/AppLogo';
 import { getHomeForRole } from '@/lib/roles';
 
 const loginSchema = z.object({
-  email: z.string().email('E-mail invalido'),
-  password: z.string().min(6, 'A senha deve ter no minimo 6 caracteres'),
+  email: z.string().email('E-mail inválido'),
+  password: z.string().min(6, 'A senha deve ter no mínimo 6 caracteres'),
 });
 
 type LoginForm = z.infer<typeof loginSchema>;
@@ -70,9 +70,9 @@ export default function LoginPage() {
       } else if (code === 'auth/too-many-requests') {
         setError('root', { message: 'Muitas tentativas. Aguarde alguns minutos.' });
       } else if (code === 'auth/network-request-failed') {
-        setError('root', { message: 'Erro de conexao. Verifique sua internet.' });
+        setError('root', { message: 'Erro de conexão. Verifique sua internet.' });
       } else {
-        setError('root', { message: 'Credenciais invalidas ou erro no servidor.' });
+        setError('root', { message: 'Credenciais inválidas ou erro no servidor.' });
       }
     }
   };
