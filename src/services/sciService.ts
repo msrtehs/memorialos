@@ -701,20 +701,20 @@ export async function getSciExecutiveSnapshot(tenantId: string, cemeteryId: stri
   if (occupancyRate >= 90) {
     priorities.push({
       code: 'SATURATION',
-      title: 'Saturacao de quadras',
+      title: 'Saturação de quadras',
       level: occupancyRate >= 97 ? 'critical' : 'high',
       score: occupancyRate,
-      details: `Taxa de ocupacao em ${occupancyRate}%. Planejar expansao e remanejamento.`
+      details: `Taxa de ocupação em ${occupancyRate}%. Planejar expansão e remanejamento.`
     });
   }
 
   if (sanitaryAlerts > 0) {
     priorities.push({
       code: 'SANITARY',
-      title: 'Risco sanitario',
+      title: 'Risco sanitário',
       level: sanitaryAlerts > 10 ? 'critical' : 'high',
       score: Math.min(100, sanitaryAlerts * 8),
-      details: `${sanitaryAlerts} alertas sanitarios ativos exigem intervencao.`
+      details: `${sanitaryAlerts} alertas sanitários ativos exigem intervenção.`
     });
   }
 
@@ -741,30 +741,30 @@ export async function getSciExecutiveSnapshot(tenantId: string, cemeteryId: stri
   if (pendingDocuments > 0) {
     priorities.push({
       code: 'DOCUMENTS',
-      title: 'Pendencias documentais',
+      title: 'Pendências documentais',
       level: pendingDocuments > 20 ? 'critical' : 'medium',
       score: Math.min(100, pendingDocuments * 4),
-      details: `${pendingDocuments} registros com documentacao pendente.`
+      details: `${pendingDocuments} registros com documentação pendente.`
     });
   }
 
   if (pendingExhumations > 0) {
     priorities.push({
       code: 'EXHUMATION',
-      title: 'Exumacoes pendentes',
+      title: 'Exumações pendentes',
       level: pendingExhumations > 5 ? 'critical' : 'high',
       score: Math.min(100, pendingExhumations * 15),
-      details: `${pendingExhumations} jazigos com prazo de exumacao vencido.`
+      details: `${pendingExhumations} jazigos com prazo de exumação vencido.`
     });
   }
 
   if (expiringConcessions > 0) {
     priorities.push({
       code: 'CONCESSION',
-      title: 'Concessoes vencendo',
+      title: 'Concessões vencendo',
       level: expiringConcessions > 10 ? 'critical' : 'medium',
       score: Math.min(100, expiringConcessions * 5),
-      details: `${expiringConcessions} concessoes temporarias proximas do vencimento.`
+      details: `${expiringConcessions} concessões temporárias próximas do vencimento.`
     });
   }
 
@@ -907,12 +907,12 @@ export async function getMonthlyBurialTrend(
 
 function getReportTitle(type: SCIReport['type']) {
   const map: Record<SCIReport['type'], string> = {
-    operational: 'Relatorio Operacional',
-    sanitary: 'Relatorio Sanitario',
-    environmental: 'Relatorio Ambiental',
-    administrative: 'Relatorio Administrativo',
-    legal: 'Relatorio Juridico',
-    financial: 'Relatorio Financeiro'
+    operational: 'Relatório Operacional',
+    sanitary: 'Relatório Sanitário',
+    environmental: 'Relatório Ambiental',
+    administrative: 'Relatório Administrativo',
+    legal: 'Relatório Jurídico',
+    financial: 'Relatório Financeiro'
   };
   return map[type];
 }

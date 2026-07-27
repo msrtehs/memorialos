@@ -78,7 +78,7 @@ export default function UserHomePage() {
         <div className="relative z-10 p-8 md:p-10 flex flex-col justify-between h-full min-h-[340px]">
           <div>
             <p className="text-blue-100 text-sm uppercase tracking-[0.18em] font-medium">
-              Inicio
+              Início
             </p>
             <h1 className="text-3xl md:text-4xl font-serif text-white font-bold mt-3 max-w-2xl leading-tight">
               {currentSlide.title}

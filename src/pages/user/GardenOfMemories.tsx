@@ -120,7 +120,7 @@ export default function GardenOfMemories() {
       <div className="flex items-end justify-between border-b border-slate-200 pb-6">
         <div>
           <h1 className="text-3xl font-serif font-bold text-slate-900 tracking-tight">
-            Jardim de Memorias
+            Jardim de Memórias
           </h1>
           <p className="text-slate-500 mt-2 text-sm">
             Acompanhe solicitações e mantenha viva a história dos seus entes queridos.
@@ -128,26 +128,21 @@ export default function GardenOfMemories() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {[1, 2, 3].map((index) => (
-          <Link
-            key={`cta-${index}`}
-            to="/app/comunicar-obito"
-            className="bg-white border border-dashed border-blue-300 rounded-2xl p-6 hover:bg-blue-50/60 transition-colors group"
-          >
-            <div className="w-12 h-12 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center">
-              <Plus size={24} />
-            </div>
-            <h2 className="mt-4 font-semibold text-slate-900">Comunicar óbito</h2>
-            <p className="text-sm text-slate-500 mt-1">
-              Inicie um novo comunicado e adicione uma memória ao seu jardim.
-            </p>
-            <div className="mt-4 text-blue-700 text-sm font-medium inline-flex items-center gap-1 group-hover:underline">
-              Ir para formulário <ChevronRight size={14} />
-            </div>
-          </Link>
-        ))}
-      </div>
+      <Link
+        to="/app/comunicar-obito"
+        className="block bg-white border border-dashed border-blue-300 rounded-2xl p-6 hover:bg-blue-50/60 transition-colors group"
+      >
+        <div className="w-12 h-12 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center">
+          <Plus size={24} />
+        </div>
+        <h2 className="mt-4 font-semibold text-slate-900">Comunicar óbito</h2>
+        <p className="text-sm text-slate-500 mt-1">
+          Inicie um novo comunicado e adicione uma memória ao seu jardim.
+        </p>
+        <div className="mt-4 text-blue-700 text-sm font-medium inline-flex items-center gap-1 group-hover:underline">
+          Ir para formulário <ChevronRight size={14} />
+        </div>
+      </Link>
 
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -162,7 +157,7 @@ export default function GardenOfMemories() {
           </div>
           <h3 className="text-lg font-medium text-slate-900 mb-2">Sem memórias registradas ainda</h3>
           <p className="text-slate-500 max-w-md mx-auto text-sm">
-            Use os cards acima para iniciar o primeiro comunicado de óbito.
+            Use o cartão acima para iniciar o primeiro comunicado de óbito.
           </p>
         </div>
       ) : (

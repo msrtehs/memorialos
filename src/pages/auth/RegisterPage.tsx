@@ -10,13 +10,13 @@ import AppLogo from '@/components/AppLogo';
 
 const registerSchema = z
   .object({
-    name: z.string().min(3, 'O nome deve ter no minimo 3 caracteres'),
-    email: z.string().email('E-mail invalido'),
-    password: z.string().min(6, 'A senha deve ter no minimo 6 caracteres'),
+    name: z.string().min(3, 'O nome deve ter no mínimo 3 caracteres'),
+    email: z.string().email('E-mail inválido'),
+    password: z.string().min(6, 'A senha deve ter no mínimo 6 caracteres'),
     confirmPassword: z.string()
   })
   .refine((data) => data.password === data.confirmPassword, {
-    message: 'As senhas nao conferem',
+    message: 'As senhas não conferem',
     path: ['confirmPassword']
   });
 
@@ -51,7 +51,7 @@ export default function RegisterPage() {
     } catch (error: any) {
       console.error(error);
       if (error.code === 'auth/email-already-in-use') {
-        setError('email', { message: 'Este e-mail ja esta em uso.' });
+        setError('email', { message: 'Este e-mail já está em uso.' });
       } else {
         setError('root', { message: 'Erro ao criar conta. Tente novamente.' });
       }
@@ -131,7 +131,7 @@ export default function RegisterPage() {
 
         <div className="mt-6 text-center text-sm text-slate-500">
           <p>
-            Ja tem uma conta?{' '}
+            Já tem uma conta?{' '}
             <Link to="/login" className="text-blue-600 font-medium hover:underline">
               Entrar
             </Link>

@@ -325,7 +325,7 @@ export default function AdminDashboard() {
           <div className="space-y-3">
             {snapshot.priorities.length === 0 && (
               <div className="bg-white/10 border border-white/15 rounded-lg p-3 text-sm text-slate-200">
-                Nenhuma prioridade critica detectada no momento.
+                Nenhuma prioridade crítica detectada no momento.
               </div>
             )}
             {snapshot.priorities.slice(0, 5).map((item) => (
@@ -365,7 +365,7 @@ export default function AdminDashboard() {
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-slate-800">Financeiro consolidado</h2>
             <button onClick={() => navigate('/admin/financeiro')} className="text-sm text-blue-700 font-medium hover:underline">
-              Ver lancamentos
+              Ver lançamentos
             </button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -413,7 +413,7 @@ export default function AdminDashboard() {
             <form onSubmit={handleSaveChecklist} className="p-6 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm text-slate-600 mb-1">Area</label>
+                  <label className="block text-sm text-slate-600 mb-1">Área</label>
                   <input
                     value={checklist.area}
                     onChange={(e) => setChecklist((prev) => ({ ...prev, area: e.target.value }))}
@@ -441,7 +441,7 @@ export default function AdminDashboard() {
                     className="w-full border border-slate-300 rounded-lg p-2.5 bg-white"
                   >
                     <option value="low">Baixo</option>
-                    <option value="medium">Medio</option>
+                    <option value="medium">Médio</option>
                     <option value="high">Alto</option>
                   </select>
                 </div>
@@ -495,7 +495,7 @@ export default function AdminDashboard() {
 
       {!loading && snapshot.priorities.length === 0 && (
         <div className="rounded-lg border border-green-200 bg-green-50 text-green-800 p-4 text-sm flex items-center gap-2">
-          <CheckCircle size={16} /> Nenhum risco critico foi identificado nas ultimas leituras do SCI.
+          <CheckCircle size={16} /> Nenhum risco crítico foi identificado nas últimas leituras do SCI.
         </div>
       )}
 
@@ -512,7 +512,7 @@ export default function AdminDashboard() {
       <div className="rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-600 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Bot size={15} className="text-slate-500" />
-          IA aplicada a gestão sanitária, ambiental e operacional ativa.
+          IA aplicada à gestão sanitária, ambiental e operacional ativa.
         </div>
         <button onClick={() => navigate('/admin/agentes')} className="text-blue-700 font-medium hover:underline">
           Configurar agentes
